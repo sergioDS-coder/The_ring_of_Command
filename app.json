@@ -1,0 +1,19 @@
+{
+  "package_id": "com.even.g2chronicles",
+  "name": "G2 Chronicles",
+  "version": "1.0.0",
+  "edition": "202601",
+  "min_app_version": "1.0.0",
+  "min_sdk_version": "1.0.0",
+  "description": {
+    "en": "G2 Text Adventure",
+    "it": "G2 Avventura"
+  },
+  "icon": "icon.png",
+  "entrypoint": "index.js",
+  "supported_languages": [
+    "en",
+    "it"
+  ],
+  "permissions": []
+}
