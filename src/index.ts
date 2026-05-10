@@ -141,32 +141,44 @@ async function init() {
     updateStatus("Bridge Connected!");
     log("Bridge ready. Creating Startup layout...");
 
-    // Optimized layout: Multiples of 8, IDs 0 and 1
+    // STRICT ALIGNMENT: 0-based IDs, multiples of 8
     const tProp = new TextContainerProperty({
-        xPosition: 40, yPosition: 24, width: 496, height: 48,
+        xPosition: 40, yPosition: 16, width: 496, height: 48,
         containerID: 0, containerName: "title", content: getTitle(),
         isEventCapture: 1
     });
     const dProp = new TextContainerProperty({
-        xPosition: 40, yPosition: 88, width: 496, height: 176,
+        xPosition: 40, yPosition: 80, width: 496, height: 176,
         containerID: 1, containerName: "desc", content: getDescription(),
         isEventCapture: 1
     });
 
     try {
-        const res = await _bridge.createStartUpPageContainer(new CreateStartUpPageContainer({
+        const layout = new CreateStartUpPageContainer({
             containerTotalNum: 2,
             textObject: [tProp, dProp]
-        }));
+        });
+
+        // Remove widgetId or other non-essential props that might trigger 'invalid'
+        const res = await _bridge.createStartUpPageContainer(layout);
         log("Layout response: " + res);
-        updateStatus("Display Active");
+
+        if (res === 0) {
+            updateStatus("Display Active");
+        } else {
+            updateStatus(`Layout Error: ${res}`);
+        }
     } catch (e) {
         log("Layout Error: " + e);
         updateStatus("Layout Error");
     }
 
     _bridge.onEvenHubEvent((event: EvenHubEvent) => {
-        const type = event.sysEvent?.eventType ?? event.textEvent?.eventType ?? event.listEvent?.eventType;
+        const sys = event.sysEvent?.eventType;
+        const text = event.textEvent?.eventType;
+        const list = event.listEvent?.eventType;
+        const type = sys !== undefined ? sys : (text !== undefined ? text : list);
+
         log(`Event received: ${type}`);
         if (type === undefined) return;
 
@@ -219,8 +231,8 @@ async function init() {
         syncUI();
     });
 
-    // Forced forced refresh after handshake
-    setTimeout(() => syncUI(), 1000);
+    // Initial sync
+    setTimeout(() => syncUI(), 800);
 }
 
 init().catch(e => { log("CRITICAL INIT ERROR: " + e); updateStatus("Fatal Error"); });
