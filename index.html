@@ -5,10 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The G2 Chronicles</title>
   </head>
-  <body>
-    <!-- Fallback indicator for phone debugging -->
-    <div id="status" style="font-family: sans-serif; padding: 20px; color: #333;">
-      Connecting to G2 Glasses...
+  <body style="background: #000; margin: 0; padding: 20px; font-family: 'Courier New', Courier, monospace; color: #0f0; overflow: hidden;">
+    <h1 style="font-size: 1.2rem; margin-top: 0; border-bottom: 1px solid #0f0; padding-bottom: 5px;">The G2 Chronicles</h1>
+    <div id="status" style="margin-bottom: 10px; font-size: 0.9rem; color: #0a0;">
+      Status: Handshaking with G2...
+    </div>
+    <div id="logs" style="background: #000; color: #0f0; padding: 10px; font-size: 10px; height: 200px; overflow-y: auto; border: 1px solid #0a0;">
+      Init logs...
     </div>
     <script type="module" src="./src/index.ts"></script>
   </body>

@@ -1,292 +1,272 @@
 import {
-  waitForEvenAppBridge,
-  EvenAppBridge,
-  OsEventTypeList,
-  StartUpPageCreateResult,
+    waitForEvenAppBridge,
+    CreateStartUpPageContainer,
+    TextContainerProperty,
+    TextContainerUpgrade,
+    OsEventTypeList,
+    EvenAppBridge
 } from '@evenrealities/even_hub_sdk';
 
-/**
- * THE G2 CHRONICLES
- * Optimized for G2 Hardware Stability
- */
-
 // --- Game Logic ---
-
-type Language = 'it' | 'en';
+type Language = 'IT' | 'EN';
+type Room = 'ENTRANCE' | 'HALL' | 'WELL' | 'ALTAR';
 
 interface GameState {
-  language: Language;
-  stage: 'LANG' | 'NAME' | 'PLAY' | 'HELP' | 'DEAD' | 'WIN';
-  playerName: string;
-  room: string;
-  hp: number;
-  inventory: string[];
-  selectedIndex: number;
-  lastMessage: { it: string, en: string } | null;
+    phase: 'LANG' | 'NAME' | 'PLAY' | 'DEAD' | 'WIN';
+    lang: Language;
+    name: string;
+    hp: number;
+    inventory: string[];
+    room: Room;
+    cursor: number;
+    options: string[];
+    showHelp: boolean;
 }
 
-const NAMES = ["Alaric", "Elara", "Kaelen", "Valerius"];
-
-const ROOMS: Record<string, { title: any, desc: any, options: any }> = {
-  entrance: {
-    title: { it: "Ingresso", en: "Entrance" },
-    desc: { it: "Rovine antiche. Uno scrigno ai tuoi piedi. Nord: Oscurita'.", en: "Ancient ruins. A chest at your feet. North: Darkness." },
-    options: (s: any) => [
-      { label: { it: "Vai a Nord", en: "Go North" }, act: () => move('dark') },
-      { label: { it: "Apri lo scrigno", en: "Open the chest" }, act: () => {
-          if (!s.inventory.includes("Torcia")) {
-            s.inventory.push("Torcia");
-            msg("Hai preso una Torcia.", "You found a Torch.");
-          } else {
-            msg("Lo scrigno e' vuoto.", "The chest is empty.");
-          }
-      }},
-      { label: { it: "Esamina l'altare", en: "Examine altar" }, act: () => msg("Un altare di pietra fredda.", "A cold stone altar.") },
-    ]
-  },
-  dark: {
-    title: { it: "Sala Oscura", en: "Dark Hall" },
-    desc: { it: "Buio pesto. Senti acqua a Est.", en: "Pitch black. You hear water East." },
-    options: (s: any) => [
-      { label: { it: "Vai a Est", en: "Go East" }, act: () => move('well') },
-      { label: { it: "Usa Torcia", en: "Use Torch" }, act: () => {
-          if (s.inventory.includes("Torcia")) {
-            msg("La luce rivela una porta a Nord.", "The light reveals a door North.");
-            if (!s.inventory.includes("Luce")) s.inventory.push("Luce");
-          } else {
-            msg("Non vedi nulla senza luce.", "You can't see anything without light.");
-          }
-      }},
-      { label: { it: "Vai a Nord", en: "Go North" }, act: () => {
-          if (s.inventory.includes("Luce")) {
-            move('altar');
-          } else {
-            s.hp -= 20;
-            msg("-20 HP! Sei inciampato nel buio.", "-20 HP! You tripped in the dark.");
-            if (s.hp <= 0) s.stage = 'DEAD';
-          }
-      }},
-      { label: { it: "Torna a Sud", en: "Go South" }, act: () => move('entrance') },
-    ]
-  },
-  well: {
-    title: { it: "Il Pozzo", en: "The Well" },
-    desc: { it: "Acqua magica. Un riflesso dorato sul fondo.", en: "Magic water. A golden glint at the bottom." },
-    options: (s: any) => [
-      { label: { it: "Bevi acqua", en: "Drink water" }, act: () => { s.hp = 100; msg("HP ripristinati!", "HP restored!"); }},
-      { label: { it: "Cerca nel pozzo", en: "Search well" }, act: () => {
-          if (!s.inventory.includes("Medaglione")) {
-            s.inventory.push("Medaglione");
-            msg("Hai trovato un Medaglione!", "You found a Medallion!");
-          } else {
-            msg("Non c'e' altro.", "There's nothing else.");
-          }
-      }},
-      { label: { it: "Vai a Ovest", en: "Go West" }, act: () => move('dark') },
-    ]
-  },
-  altar: {
-    title: { it: "Altare G2", en: "G2 Altar" },
-    desc: { it: "L'energia vibra. Serve una chiave circolare.", en: "Energy vibrates. It needs a circular key." },
-    options: (s: any) => [
-      { label: { it: "Usa Medaglione", en: "Use Medallion" }, act: () => {
-          if (s.inventory.includes("Medaglione")) {
-            s.stage = 'WIN';
-          } else {
-            msg("Non succede nulla.", "Nothing happens.");
-          }
-      }},
-      { label: { it: "Vai a Sud", en: "Go South" }, act: () => move('dark') },
-    ]
-  }
-};
-
-let state: GameState = {
-  language: 'it',
-  stage: 'LANG',
-  playerName: '',
-  room: 'entrance',
-  hp: 100,
-  inventory: [],
-  selectedIndex: 0,
-  lastMessage: null
-};
-
-function msg(it: string, en: string) { state.lastMessage = { it, en }; }
-function move(r: string) { state.room = r; state.selectedIndex = 0; state.lastMessage = null; }
-
-function getOptions(): { label: any, act: any }[] {
-  if (state.stage === 'LANG') return [
-    { label: { it: "Italiano", en: "Italian" }, act: () => { state.language = 'it'; state.stage = 'NAME'; state.selectedIndex = 0; } },
-    { label: { it: "English", en: "English" }, act: () => { state.language = 'en'; state.stage = 'NAME'; state.selectedIndex = 0; } }
-  ];
-  if (state.stage === 'NAME') return NAMES.map(n => ({ label: { it: n, en: n }, act: () => { state.playerName = n; state.stage = 'PLAY'; state.selectedIndex = 0; } }));
-  if (state.stage === 'PLAY') return ROOMS[state.room].options(state);
-  if (state.stage === 'HELP') return [{ label: { it: "Torna", en: "Back" }, act: () => { state.stage = 'PLAY'; state.selectedIndex = 0; } }];
-  return [{ label: { it: "Ricomincia", en: "Restart" }, act: () => {
-    state.stage = 'LANG'; state.hp = 100; state.inventory = []; state.room = 'entrance'; state.lastMessage = null; state.selectedIndex = 0;
-  } }];
-}
-
-// --- SDK Interface ---
-
-let bridge: EvenAppBridge;
-let isInitialized = false;
-
-function updatePhoneStatus(text: string) {
-  const el = document.getElementById('status');
-  if (el) el.innerHTML += `<div>[${new Date().toLocaleTimeString().split(' ')[0]}] ${text}</div>`;
-  console.log(text);
-}
-
-const even = {
-  showCard: async (title: string, description: string) => {
-    if (!bridge) return;
-
-    // Optimized for G2: 8-pixel grid alignment, 0-based IDs, isEventCapture: 1
-    const layout = {
-      containerTotalNum: 2,
-      textObject: [
-        {
-          xPosition: 40,
-          yPosition: 24,
-          width: 496,
-          height: 48,
-          containerID: 0,
-          containerName: 'title_layer',
-          content: title.toUpperCase(),
-          borderColor: 7,
-          borderWidth: 1,
-          borderRadius: 8,
-          paddingLength: 8,
-          isEventCapture: 0
+const ROOMS: Record<Language, Record<Room, { title: string; desc: string; options: string[] }>> = {
+    IT: {
+        ENTRANCE: {
+            title: "Il Cancello di Ferro",
+            desc: "Sei davanti a un imponente cancello. L'aria è fredda e profuma di pino e avventura.",
+            options: ["Entra nel Castello", "Esamina i dintorni"]
         },
-        {
-          xPosition: 40,
-          yPosition: 80,
-          width: 496,
-          height: 200,
-          containerID: 1,
-          containerName: 'desc_layer',
-          content: description,
-          borderColor: 0,
-          borderWidth: 0,
-          borderRadius: 0,
-          paddingLength: 8,
-          isEventCapture: 1
+        HALL: {
+            title: "Atrio Oscuro",
+            desc: "Un salone immenso. Torce spente pendono dai muri. Senti gocciolare dell'acqua a Ovest.",
+            options: ["Vai a Ovest (Pozzo)", "Prosegui a Nord", "Torna indietro"]
+        },
+        WELL: {
+            title: "Il Pozzo Antico",
+            desc: "Un pozzo di pietra. Qualcosa brilla sul fondo. Hai un HP in meno per la fatica.",
+            options: ["Esamina il pozzo", "Torna all'atrio"]
+        },
+        ALTAR: {
+            title: "L'Altare G2",
+            desc: "Una luce dorata illumina un altare. Al centro, un manufatto leggendario.",
+            options: ["Prendi il Manufatto", "Recita una preghiera"]
         }
-      ]
+    },
+    EN: {
+        ENTRANCE: {
+            title: "The Iron Gate",
+            desc: "You stand before a massive gate. The air is cold, smelling of pine and adventure.",
+            options: ["Enter the Castle", "Examine surroundings"]
+        },
+        HALL: {
+            title: "Dark Hall",
+            desc: "A vast hall. Unlit torches hang from the walls. You hear water dripping to the West.",
+            options: ["Go West (Well)", "Proceed North", "Go back"]
+        },
+        WELL: {
+            title: "The Ancient Well",
+            desc: "A stone well. Something glimmers at the bottom. -1 HP from exhaustion.",
+            options: ["Examine well", "Back to hall"]
+        },
+        ALTAR: {
+            title: "The G2 Altar",
+            desc: "Golden light illuminates an altar. At its center, a legendary artifact.",
+            options: ["Take the Artifact", "Say a prayer"]
+        }
+    }
+};
+
+const HELP_TEXT: Record<Language, string> = {
+    IT: "AIUTO:\nScorri (Top/Bottom): Naviga opzioni o cambia lettera.\nClick: Conferma azione.\nDoppio Click: Chiudi Aiuto.",
+    EN: "HELP:\nScroll (Top/Bottom): Navigate options or change letter.\nClick: Confirm action.\nDouble Click: Close Help."
+};
+
+class G2Chronicles {
+    public state: GameState = {
+        phase: 'LANG',
+        lang: 'IT',
+        name: '',
+        hp: 10,
+        inventory: [],
+        room: 'ENTRANCE',
+        cursor: 0,
+        options: ['ITALIANO', 'ENGLISH'],
+        showHelp: false
     };
 
-    try {
-      if (!isInitialized) {
-        updatePhoneStatus("Creating Startup Container...");
-        const res = await bridge.createStartUpPageContainer(layout as any);
-        if (res === StartUpPageCreateResult.success) {
-          isInitialized = true;
-          updatePhoneStatus("Startup Success.");
-        } else {
-          updatePhoneStatus(`Startup Error: ${res}. Retrying with Rebuild...`);
-          await bridge.rebuildPageContainer(layout as any);
-          isInitialized = true;
-        }
-      } else {
-        await bridge.rebuildPageContainer(layout as any);
-      }
-    } catch (e) {
-      updatePhoneStatus(`SDK Error: ${e}`);
+    private alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+    private charIndex = 0;
+
+    getTitle(): string {
+        if (this.state.showHelp) return "Help / Aiuto";
+        if (this.state.phase === 'LANG') return "The G2 Chronicles";
+        if (this.state.phase === 'NAME') return "Nome: " + this.state.name + this.alphabet[this.charIndex];
+        if (this.state.phase === 'DEAD') return this.state.lang === 'IT' ? "GAME OVER" : "YOU DIED";
+        if (this.state.phase === 'WIN') return this.state.lang === 'IT' ? "VITTORIA!" : "VICTORY!";
+        return ROOMS[this.state.lang][this.state.room].title;
     }
-  }
+
+    getDescription(): string {
+        if (this.state.showHelp) return HELP_TEXT[this.state.lang];
+        if (this.state.phase === 'LANG') return "Seleziona Lingua / Select Language";
+        if (this.state.phase === 'NAME') return "Scorri per cambiare lettera.\nSeleziona '_' per confermare il nome.";
+        if (this.state.phase === 'DEAD') return "La tua avventura finisce qui.";
+        if (this.state.phase === 'WIN') return "Hai trovato le G2 leggendarie! Il mondo è salvo.";
+
+        const room = ROOMS[this.state.lang][this.state.room];
+        let d = room.desc + "\n\nHP: " + this.state.hp + "\n\n";
+        room.options.forEach((opt, i) => {
+            d += (i === this.state.cursor ? "> " : "  ") + opt + "\n";
+        });
+        return d;
+    }
+
+    handleScroll(dir: 'UP' | 'DOWN') {
+        if (this.state.showHelp) return;
+        if (this.state.phase === 'LANG' || this.state.phase === 'PLAY') {
+            const max = this.state.options.length;
+            if (dir === 'DOWN') this.state.cursor = (this.state.cursor + 1) % max;
+            else this.state.cursor = (this.state.cursor - 1 + max) % max;
+        } else if (this.state.phase === 'NAME') {
+            const max = this.alphabet.length;
+            if (dir === 'DOWN') this.charIndex = (this.charIndex + 1) % max;
+            else this.charIndex = (this.charIndex - 1 + max) % max;
+        }
+    }
+
+    handleSelect() {
+        if (this.state.showHelp) {
+            this.state.showHelp = false;
+            return;
+        }
+        if (this.state.phase === 'LANG') {
+            this.state.lang = this.state.cursor === 0 ? 'IT' : 'EN';
+            this.state.phase = 'NAME';
+        } else if (this.state.phase === 'NAME') {
+            const char = this.alphabet[this.charIndex];
+            if (char === '_') {
+                if (this.state.name.length > 0) {
+                    this.state.phase = 'PLAY';
+                    this.updateRoom();
+                }
+            } else {
+                if (this.state.name.length < 8) this.state.name += char;
+            }
+        } else if (this.state.phase === 'PLAY') {
+            this.processAction();
+        }
+    }
+
+    toggleHelp() {
+        this.state.showHelp = !this.state.showHelp;
+    }
+
+    private updateRoom() {
+        this.state.cursor = 0;
+        this.state.options = ROOMS[this.state.lang][this.state.room].options;
+    }
+
+    private processAction() {
+        const choice = this.state.cursor;
+        if (this.state.room === 'ENTRANCE') {
+            if (choice === 0) { this.state.room = 'HALL'; }
+        } else if (this.state.room === 'HALL') {
+            if (choice === 0) { this.state.room = 'WELL'; this.state.hp -= 1; }
+            else if (choice === 1) { this.state.room = 'ALTAR'; }
+            else if (choice === 2) { this.state.room = 'ENTRANCE'; }
+        } else if (this.state.room === 'WELL') {
+            if (choice === 0) { this.state.inventory.push("Torch"); }
+            else { this.state.room = 'HALL'; }
+        } else if (this.state.room === 'ALTAR') {
+            if (choice === 0) { this.state.phase = 'WIN'; }
+            else { this.state.room = 'HALL'; }
+        }
+
+        if (this.state.hp <= 0) this.state.phase = 'DEAD';
+        if (this.state.phase === 'PLAY') this.updateRoom();
+    }
+}
+
+// --- Bridge Integration ---
+
+const game = new G2Chronicles();
+const log = (msg: string) => {
+    const el = document.getElementById('logs');
+    if (el) el.innerHTML = `[${Date.now()}] ${msg}<br>` + el.innerHTML;
+    console.log(msg);
 };
 
-async function render() {
-  const l = state.language;
-  const opts = getOptions();
-  let t = "THE G2 CHRONICLES";
-  let d = "";
+async function render(bridge: EvenAppBridge) {
+    const title = game.getTitle();
+    const desc = game.getDescription();
 
-  if (state.stage === 'LANG') {
-    d = "Seleziona Lingua / Select Language\n";
-  } else if (state.stage === 'NAME') {
-    d = l === 'it' ? "Scegli il tuo Eroe:" : "Choose your Hero:";
-  } else if (state.stage === 'PLAY') {
-    const r = ROOMS[state.room];
-    t = r.title[l];
-    d = (state.lastMessage ? `[!] ${state.lastMessage[l]}\n\n` : "") + r.desc[l];
-    d += `\n\nHP: ${state.hp} | Inv: ${state.inventory.length}\n---`;
-  } else if (state.stage === 'HELP') {
-    t = l === 'it' ? "MANUALE" : "MANUAL";
-    d = l === 'it' ? "CONTROLLI R1 RING:\n- Scorri: Naviga\n- Click: Conferma\n- Doppio: Aiuto" : "R1 RING CONTROLS:\n- Scroll: Navigate\n- Click: Confirm\n- Double: Help";
-  } else if (state.stage === 'DEAD') {
-    t = "GAME OVER";
-    d = l === 'it' ? "Sei caduto nell'oscurita'." : "You fell into darkness.";
-  } else if (state.stage === 'WIN') {
-    t = l === 'it' ? "VITTORIA" : "VICTORY";
-    d = l === 'it' ? `Bravo ${state.playerName}, hai svelato il segreto!` : `Well done ${state.playerName}, you revealed the secret!`;
-  }
+    log(`UI: ${title.substring(0,10)}...`);
 
-  d += "\n" + opts.map((o, i) => (i === state.selectedIndex ? `> ${o.label[l]}` : `  ${o.label[l]}`)).join("\n");
-
-  await even.showCard(t, d);
+    try {
+        await bridge.textContainerUpgrade(new TextContainerUpgrade({
+            containerID: 10,
+            content: title
+        }));
+        await bridge.textContainerUpgrade(new TextContainerUpgrade({
+            containerID: 11,
+            content: desc
+        }));
+    } catch (e) {
+        log("Sync...");
+    }
 }
-
-// --- Input ---
-
-function handleScroll(dir: number) {
-  const opts = getOptions();
-  if (opts.length === 0) return;
-  state.selectedIndex = (state.selectedIndex + dir + opts.length) % opts.length;
-  render();
-}
-
-function handleSelect() {
-  const opts = getOptions();
-  if (opts[state.selectedIndex]) {
-    opts[state.selectedIndex].act();
-    render();
-  }
-}
-
-// --- Initialization ---
 
 async function init() {
-  updatePhoneStatus("Starting G2 Chronicles...");
+    log("Booting G2 Chronicles...");
+    const bridge = await waitForEvenAppBridge();
+    log("Bridge Ready.");
 
-  try {
-    bridge = await Promise.race([
-      waitForEvenAppBridge(),
-      new Promise<any>((_, rej) => setTimeout(() => rej("Bridge timeout"), 5000))
-    ]).catch(() => {
-      updatePhoneStatus("Timeout. Using Bridge instance.");
-      return EvenAppBridge.getInstance();
+    await new Promise(r => setTimeout(r, 1000));
+
+    const titleContainer = new TextContainerProperty({
+        xPosition: 40,
+        yPosition: 16,
+        width: 496,
+        height: 56,
+        containerID: 10,
+        containerName: "title",
+        content: game.getTitle()
     });
 
-    updatePhoneStatus("Bridge Ready.");
+    const descContainer = new TextContainerProperty({
+        xPosition: 40,
+        yPosition: 80,
+        width: 496,
+        height: 192,
+        containerID: 11,
+        containerName: "desc",
+        content: game.getDescription(),
+        isEventCapture: 1
+    });
 
-    bridge.onEvenHubEvent((ev) => {
-      // Handle both text and system events
-      const event = ev.textEvent || ev.sysEvent || ev.listEvent;
-      if (!event) return;
+    const startUpLayout = new CreateStartUpPageContainer({
+        containerTotalNum: 2,
+        textObject: [titleContainer, descContainer]
+    });
 
-      const type = event.eventType;
-      if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) handleScroll(1);
-      else if (type === OsEventTypeList.SCROLL_TOP_EVENT) handleScroll(-1);
-      else if (type === OsEventTypeList.CLICK_EVENT) handleSelect();
-      else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
-        if (state.stage === 'PLAY') {
-          state.stage = 'HELP';
-          state.selectedIndex = 0;
-          render();
+    log("Creating Startup...");
+    const res = await bridge.createStartUpPageContainer(startUpLayout);
+    log(`Result: ${res}`);
+
+    await render(bridge);
+
+    bridge.onEvenHubEvent((event) => {
+        const type = event.textEvent?.eventType;
+        if (type === undefined) return;
+
+        log(`Evt: ${type}`);
+
+        if (type === OsEventTypeList.SCROLL_TOP_EVENT) {
+            game.handleScroll('UP');
+        } else if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) {
+            game.handleScroll('DOWN');
+        } else if (type === OsEventTypeList.CLICK_EVENT) {
+            game.handleSelect();
+        } else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
+            game.toggleHelp();
         }
-      }
+
+        render(bridge);
     });
-
-    await render();
-
-  } catch (err) {
-    updatePhoneStatus(`Fatal: ${err}`);
-  }
 }
 
-window.onerror = (m, _u, l) => updatePhoneStatus(`ERR: ${m} (line ${l})`);
-init();
+init().catch(err => log("Init Error: " + err));
