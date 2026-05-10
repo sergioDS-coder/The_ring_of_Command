@@ -5,7 +5,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    minify: 'terser', // Recommended for smaller plugin size
+    minify: 'esbuild', // Faster and built-in
     sourcemap: false,
   },
 });

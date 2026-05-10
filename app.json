@@ -3,7 +3,6 @@
   "name": "G2 Chronicles",
   "version": "1.0.0",
   "description": "The G2 Chronicles: A Pure Text Adventure",
-  "icon": "icon.png",
   "entry": "index.html",
   "category": "Games"
 }
