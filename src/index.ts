@@ -10,7 +10,11 @@ import {
 /**
  * THE G2 CHRONICLES
  * A Pure Text Adventure for Even Realities G2
- * Style: Zork / Classic Fantasy
+ *
+ * Hardware Compatibility Version:
+ * - Ensures Title and Desc containers are created during startup.
+ * - Uses consistent container IDs.
+ * - Handles bridge initialization robustly.
  */
 
 // --- Types & Interfaces ---
@@ -155,11 +159,16 @@ function move(room: string) {
 
 // --- UI Wrapper ---
 
+const TITLE_ID = 1;
+const DESC_ID = 2;
+
 const even = {
   showCard: async (title: string, description: string) => {
-    if (!bridge) return;
+    if (!bridge) {
+      console.warn("Bridge not ready for render");
+      return;
+    }
 
-    // Split text into short paragraphs for G2 readability
     const formattedDesc = description.split('\n').join('\n\n');
 
     const titleText = new TextContainerProperty({
@@ -167,7 +176,7 @@ const even = {
       yPosition: 20,
       width: 516,
       height: 40,
-      containerID: 1,
+      containerID: TITLE_ID,
       containerName: 'title',
       content: title.toUpperCase(),
       borderColor: 8,
@@ -180,17 +189,21 @@ const even = {
       yPosition: 70,
       width: 516,
       height: 208,
-      containerID: 2,
+      containerID: DESC_ID,
       containerName: 'desc',
       content: formattedDesc,
       isEventCapture: 1,
       paddingLength: 10,
     });
 
-    await bridge.rebuildPageContainer(new RebuildPageContainer({
-      containerTotalNum: 2,
-      textObject: [titleText, descText],
-    }));
+    try {
+      await bridge.rebuildPageContainer(new RebuildPageContainer({
+        containerTotalNum: 2,
+        textObject: [titleText, descText],
+      }));
+    } catch (e) {
+      console.error("Failed to rebuild container:", e);
+    }
   }
 };
 
@@ -222,6 +235,7 @@ function getOptions(): GameOption[] {
       state.inventory = [];
       state.room = 'forest';
       state.message = null;
+      state.selectedIndex = 0;
     } }];
   }
   return [];
@@ -293,34 +307,53 @@ function handleSelect() {
 // --- Start ---
 
 async function main() {
-  bridge = await waitForEvenAppBridge();
+  console.log("Initializing G2 Chronicles...");
 
-  // Setup Initial Container
-  await bridge.createStartUpPageContainer(
-    new CreateStartUpPageContainer({
-      containerTotalNum: 1,
-      textObject: [new TextContainerProperty({
-        xPosition: 0, yPosition: 0, width: 576, height: 288,
-        containerID: 1, containerName: 'init', content: '...', isEventCapture: 1
-      })],
-    })
-  );
+  try {
+    bridge = await waitForEvenAppBridge();
+    console.log("Bridge connected");
 
-  bridge.onEvenHubEvent((event) => {
-    if (event.textEvent) {
-      const type = event.textEvent.eventType;
-      if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) handleScroll('down');
-      else if (type === OsEventTypeList.SCROLL_TOP_EVENT) handleScroll('up');
-      else if (type === OsEventTypeList.CLICK_EVENT || type === undefined) handleSelect();
-      else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
-        state.stage = 'HELP';
-        state.selectedIndex = 0;
-        render();
+    // CRITICAL: Initialize both containers immediately during startup
+    // to match the structure used in rebuildPageContainer.
+    const result = await bridge.createStartUpPageContainer(
+      new CreateStartUpPageContainer({
+        containerTotalNum: 2,
+        textObject: [
+          new TextContainerProperty({
+            xPosition: 30, yPosition: 20, width: 516, height: 40,
+            containerID: TITLE_ID, containerName: 'title', content: 'LOADING...',
+          }),
+          new TextContainerProperty({
+            xPosition: 30, yPosition: 70, width: 516, height: 208,
+            containerID: DESC_ID, containerName: 'desc', content: 'Please wait...',
+            isEventCapture: 1
+          })
+        ],
+      })
+    );
+
+    console.log("Startup container result:", result);
+
+    bridge.onEvenHubEvent((event) => {
+      if (event.textEvent) {
+        const type = event.textEvent.eventType;
+        if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) handleScroll('down');
+        else if (type === OsEventTypeList.SCROLL_TOP_EVENT) handleScroll('up');
+        else if (type === OsEventTypeList.CLICK_EVENT || type === undefined) handleSelect();
+        else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
+          state.stage = 'HELP';
+          state.selectedIndex = 0;
+          render();
+        }
       }
-    }
-  });
+    });
 
-  render();
+    // Start rendering the first game screen
+    await render();
+
+  } catch (err) {
+    console.error("Initialization error:", err);
+  }
 }
 
 main();
