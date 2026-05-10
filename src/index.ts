@@ -153,8 +153,7 @@ async function init() {
         yPosition: 16,
         width: 496,
         height: 56,
-        content: getTitle(),
-        isEventCapture: 1
+        content: getTitle()
     });
 
     const dProp = new TextContainerProperty({
