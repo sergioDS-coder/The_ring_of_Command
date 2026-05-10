@@ -32,50 +32,71 @@ const ROOMS: Record<string, { title: any, desc: any, options: any }> = {
     title: { it: "Ingresso", en: "Entrance" },
     desc: { it: "Rovine antiche. Uno scrigno ai tuoi piedi. Nord: Oscurita'.", en: "Ancient ruins. A chest at your feet. North: Darkness." },
     options: (s: any) => [
-      { label: { it: "Nord", en: "North" }, act: () => move('dark') },
-      { label: { it: "Apri scrigno", en: "Open chest" }, act: () => {
-          if (!s.inventory.includes("Torcia")) { s.inventory.push("Torcia"); msg("Hai preso una Torcia.", "You got a Torch."); }
-          else msg("Vuoto.", "Empty.");
+      { label: { it: "Vai a Nord", en: "Go North" }, act: () => move('dark') },
+      { label: { it: "Apri lo scrigno", en: "Open the chest" }, act: () => {
+          if (!s.inventory.includes("Torcia")) {
+            s.inventory.push("Torcia");
+            msg("Hai preso una Torcia.", "You found a Torch.");
+          } else {
+            msg("Lo scrigno e' vuoto.", "The chest is empty.");
+          }
       }},
+      { label: { it: "Esamina l'altare", en: "Examine altar" }, act: () => msg("Un altare di pietra fredda.", "A cold stone altar.") },
     ]
   },
   dark: {
     title: { it: "Sala Oscura", en: "Dark Hall" },
     desc: { it: "Buio pesto. Senti acqua a Est.", en: "Pitch black. You hear water East." },
     options: (s: any) => [
-      { label: { it: "Est", en: "East" }, act: () => move('well') },
+      { label: { it: "Vai a Est", en: "Go East" }, act: () => move('well') },
       { label: { it: "Usa Torcia", en: "Use Torch" }, act: () => {
-          if (s.inventory.includes("Torcia")) { msg("Vedi una porta a Nord.", "You see a door North."); s.inventory.push("Luce"); }
-          else msg("Non vedi nulla.", "Can't see anything.");
+          if (s.inventory.includes("Torcia")) {
+            msg("La luce rivela una porta a Nord.", "The light reveals a door North.");
+            if (!s.inventory.includes("Luce")) s.inventory.push("Luce");
+          } else {
+            msg("Non vedi nulla senza luce.", "You can't see anything without light.");
+          }
       }},
-      { label: { it: "Nord", en: "North" }, act: () => {
-          if (s.inventory.includes("Luce")) move('altar');
-          else { s.hp -= 20; msg("-20 HP! Troppo buio.", "-20 HP! Too dark."); if (s.hp <= 0) s.stage = 'DEAD'; }
+      { label: { it: "Vai a Nord", en: "Go North" }, act: () => {
+          if (s.inventory.includes("Luce")) {
+            move('altar');
+          } else {
+            s.hp -= 20;
+            msg("-20 HP! Sei inciampato nel buio.", "-20 HP! You tripped in the dark.");
+            if (s.hp <= 0) s.stage = 'DEAD';
+          }
       }},
-      { label: { it: "Sud", en: "South" }, act: () => move('entrance') },
+      { label: { it: "Torna a Sud", en: "Go South" }, act: () => move('entrance') },
     ]
   },
   well: {
     title: { it: "Il Pozzo", en: "The Well" },
-    desc: { it: "Acqua magica. Un riflesso dorato sul fondo.", en: "Magic water. Golden glint at the bottom." },
+    desc: { it: "Acqua magica. Un riflesso dorato sul fondo.", en: "Magic water. A golden glint at the bottom." },
     options: (s: any) => [
-      { label: { it: "Bevi", en: "Drink" }, act: () => { s.hp = 100; msg("HP al massimo!", "Full HP!"); }},
-      { label: { it: "Cerca", en: "Search" }, act: () => {
-          if (!s.inventory.includes("Medaglione")) { s.inventory.push("Medaglione"); msg("Preso Medaglione!", "Got Medallion!"); }
-          else msg("Niente.", "Nothing.");
+      { label: { it: "Bevi acqua", en: "Drink water" }, act: () => { s.hp = 100; msg("HP ripristinati!", "HP restored!"); }},
+      { label: { it: "Cerca nel pozzo", en: "Search well" }, act: () => {
+          if (!s.inventory.includes("Medaglione")) {
+            s.inventory.push("Medaglione");
+            msg("Hai trovato un Medaglione!", "You found a Medallion!");
+          } else {
+            msg("Non c'e' altro.", "There's nothing else.");
+          }
       }},
-      { label: { it: "Ovest", en: "West" }, act: () => move('dark') },
+      { label: { it: "Vai a Ovest", en: "Go West" }, act: () => move('dark') },
     ]
   },
   altar: {
     title: { it: "Altare G2", en: "G2 Altar" },
-    desc: { it: "L'energia vibra. Serve una chiave circolare.", en: "Energy vibrates. Needs a circular key." },
+    desc: { it: "L'energia vibra. Serve una chiave circolare.", en: "Energy vibrates. It needs a circular key." },
     options: (s: any) => [
       { label: { it: "Usa Medaglione", en: "Use Medallion" }, act: () => {
-          if (s.inventory.includes("Medaglione")) s.stage = 'WIN';
-          else msg("Non succede nulla.", "Nothing happens.");
+          if (s.inventory.includes("Medaglione")) {
+            s.stage = 'WIN';
+          } else {
+            msg("Non succede nulla.", "Nothing happens.");
+          }
       }},
-      { label: { it: "Sud", en: "South" }, act: () => move('dark') },
+      { label: { it: "Vai a Sud", en: "Go South" }, act: () => move('dark') },
     ]
   }
 };
@@ -96,12 +117,12 @@ function move(r: string) { state.room = r; state.selectedIndex = 0; state.lastMe
 
 function getOptions(): { label: any, act: any }[] {
   if (state.stage === 'LANG') return [
-    { label: { it: "Italiano", en: "Italian" }, act: () => { state.language = 'it'; state.stage = 'NAME'; } },
-    { label: { it: "English", en: "English" }, act: () => { state.language = 'en'; state.stage = 'NAME'; } }
+    { label: { it: "Italiano", en: "Italian" }, act: () => { state.language = 'it'; state.stage = 'NAME'; state.selectedIndex = 0; } },
+    { label: { it: "English", en: "English" }, act: () => { state.language = 'en'; state.stage = 'NAME'; state.selectedIndex = 0; } }
   ];
-  if (state.stage === 'NAME') return NAMES.map(n => ({ label: { it: n, en: n }, act: () => { state.playerName = n; state.stage = 'PLAY'; } }));
+  if (state.stage === 'NAME') return NAMES.map(n => ({ label: { it: n, en: n }, act: () => { state.playerName = n; state.stage = 'PLAY'; state.selectedIndex = 0; } }));
   if (state.stage === 'PLAY') return ROOMS[state.room].options(state);
-  if (state.stage === 'HELP') return [{ label: { it: "Torna", en: "Back" }, act: () => { state.stage = 'PLAY'; } }];
+  if (state.stage === 'HELP') return [{ label: { it: "Torna", en: "Back" }, act: () => { state.stage = 'PLAY'; state.selectedIndex = 0; } }];
   return [{ label: { it: "Ricomincia", en: "Restart" }, act: () => {
     state.stage = 'LANG'; state.hp = 100; state.inventory = []; state.room = 'entrance'; state.lastMessage = null; state.selectedIndex = 0;
   } }];
@@ -122,30 +143,30 @@ const even = {
   showCard: async (title: string, description: string) => {
     if (!bridge) return;
 
-    // G2 Firmware Optimization: Use safe-zone coordinates and explicit property types
+    // Optimized for G2: 8-pixel grid alignment, 0-based IDs, isEventCapture: 1
     const layout = {
       containerTotalNum: 2,
       textObject: [
         {
           xPosition: 40,
-          yPosition: 20,
+          yPosition: 24,
           width: 496,
-          height: 40,
-          containerID: 1,
+          height: 48,
+          containerID: 0,
           containerName: 'title_layer',
           content: title.toUpperCase(),
           borderColor: 7,
           borderWidth: 1,
-          borderRadius: 4,
-          paddingLength: 4,
+          borderRadius: 8,
+          paddingLength: 8,
           isEventCapture: 0
         },
         {
           xPosition: 40,
-          yPosition: 70,
+          yPosition: 80,
           width: 496,
           height: 200,
-          containerID: 2,
+          containerID: 1,
           containerName: 'desc_layer',
           content: description,
           borderColor: 0,
@@ -159,14 +180,13 @@ const even = {
 
     try {
       if (!isInitialized) {
-        updatePhoneStatus("Sending Startup Container...");
+        updatePhoneStatus("Creating Startup Container...");
         const res = await bridge.createStartUpPageContainer(layout as any);
         if (res === StartUpPageCreateResult.success) {
           isInitialized = true;
-          updatePhoneStatus("Success.");
+          updatePhoneStatus("Startup Success.");
         } else {
-          updatePhoneStatus(`Error: ${res}`);
-          // Fallback: try rebuild anyway
+          updatePhoneStatus(`Startup Error: ${res}. Retrying with Rebuild...`);
           await bridge.rebuildPageContainer(layout as any);
           isInitialized = true;
         }
@@ -182,21 +202,28 @@ const even = {
 async function render() {
   const l = state.language;
   const opts = getOptions();
-  let t = "G2 CHRONICLES";
+  let t = "THE G2 CHRONICLES";
   let d = "";
 
-  if (state.stage === 'LANG') d = "Lingua / Language";
-  else if (state.stage === 'NAME') d = l === 'it' ? "Scegli Eroe:" : "Pick Hero:";
-  else if (state.stage === 'PLAY') {
+  if (state.stage === 'LANG') {
+    d = "Seleziona Lingua / Select Language\n";
+  } else if (state.stage === 'NAME') {
+    d = l === 'it' ? "Scegli il tuo Eroe:" : "Choose your Hero:";
+  } else if (state.stage === 'PLAY') {
     const r = ROOMS[state.room];
     t = r.title[l];
     d = (state.lastMessage ? `[!] ${state.lastMessage[l]}\n\n` : "") + r.desc[l];
     d += `\n\nHP: ${state.hp} | Inv: ${state.inventory.length}\n---`;
   } else if (state.stage === 'HELP') {
-    t = l === 'it' ? "AIUTO" : "HELP";
-    d = l === 'it' ? "R1 Ring:\n- Scorri: Naviga\n- Click: Conferma\n- Doppio: Aiuto" : "R1 Ring:\n- Scroll: Navigate\n- Click: Confirm\n- Double: Help";
-  } else if (state.stage === 'DEAD') { t = "GAME OVER"; d = l === 'it' ? "Sei morto." : "You died."; }
-  else if (state.stage === 'WIN') { t = "VITTORIA"; d = l === 'it' ? `Bravo ${state.playerName}!` : `Well done ${state.playerName}!`; }
+    t = l === 'it' ? "MANUALE" : "MANUAL";
+    d = l === 'it' ? "CONTROLLI R1 RING:\n- Scorri: Naviga\n- Click: Conferma\n- Doppio: Aiuto" : "R1 RING CONTROLS:\n- Scroll: Navigate\n- Click: Confirm\n- Double: Help";
+  } else if (state.stage === 'DEAD') {
+    t = "GAME OVER";
+    d = l === 'it' ? "Sei caduto nell'oscurita'." : "You fell into darkness.";
+  } else if (state.stage === 'WIN') {
+    t = l === 'it' ? "VITTORIA" : "VICTORY";
+    d = l === 'it' ? `Bravo ${state.playerName}, hai svelato il segreto!` : `Well done ${state.playerName}, you revealed the secret!`;
+  }
 
   d += "\n" + opts.map((o, i) => (i === state.selectedIndex ? `> ${o.label[l]}` : `  ${o.label[l]}`)).join("\n");
 
@@ -223,21 +250,21 @@ function handleSelect() {
 // --- Initialization ---
 
 async function init() {
-  updatePhoneStatus("Booting...");
+  updatePhoneStatus("Starting G2 Chronicles...");
 
   try {
-    // Resilient async load
     bridge = await Promise.race([
       waitForEvenAppBridge(),
-      new Promise<any>((_, rej) => setTimeout(() => rej("timeout"), 3000))
+      new Promise<any>((_, rej) => setTimeout(() => rej("Bridge timeout"), 5000))
     ]).catch(() => {
-      updatePhoneStatus("Bridge timeout, using Instance.");
+      updatePhoneStatus("Timeout. Using Bridge instance.");
       return EvenAppBridge.getInstance();
     });
 
     updatePhoneStatus("Bridge Ready.");
 
     bridge.onEvenHubEvent((ev) => {
+      // Handle both text and system events
       const event = ev.textEvent || ev.sysEvent || ev.listEvent;
       if (!event) return;
 
@@ -246,9 +273,11 @@ async function init() {
       else if (type === OsEventTypeList.SCROLL_TOP_EVENT) handleScroll(-1);
       else if (type === OsEventTypeList.CLICK_EVENT) handleSelect();
       else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
-        state.stage = 'HELP';
-        state.selectedIndex = 0;
-        render();
+        if (state.stage === 'PLAY') {
+          state.stage = 'HELP';
+          state.selectedIndex = 0;
+          render();
+        }
       }
     });
 
