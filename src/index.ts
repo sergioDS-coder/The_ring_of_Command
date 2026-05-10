@@ -11,10 +11,7 @@ import {
  * THE G2 CHRONICLES
  * A Pure Text Adventure for Even Realities G2
  *
- * Hardware Compatibility Version:
- * - Ensures Title and Desc containers are created during startup.
- * - Uses consistent container IDs.
- * - Handles bridge initialization robustly.
+ * Hardware Compatibility: Even Realities G2 + R1 Ring
  */
 
 // --- Types & Interfaces ---
@@ -43,89 +40,97 @@ interface GameState {
   message: { [key in Language]: string } | null;
 }
 
-// --- Content Data ---
+// --- Content Data (Zork Style) ---
 
-const NAMES = ["Alaric", "Elara", "Kaelen", "Morgath", "Valerius"];
+const NAMES = ["Alaric", "Elara", "Kaelen", "Valerius"];
 
 const ROOMS: Record<string, Room> = {
-  forest: {
-    title: { it: "Foresta di Smeraldo", en: "Emerald Forest" },
+  entrance: {
+    title: { it: "Ingresso Rovine", en: "Ruins Entrance" },
     desc: {
-      it: "Alberi secolari svettano verso il cielo. Una fitta nebbia copre il suolo.\n\nA nord senti il soffio freddo di una grotta.\nA est brilla una luce mistica.",
-      en: "Ancient trees tower toward the sky. A thick mist covers the ground.\n\nTo the North, you feel a cold breeze from a cave.\nTo the East, a mystic light shines."
+      it: "Ti trovi davanti a un'imponente arcata di pietra. Il vento ulula tra le fessure. A nord l'oscurità inghiotte il sentiero.\n\nUno scrigno consumato dal tempo giace ai tuoi piedi.",
+      en: "You stand before a massive stone archway. The wind howls through the cracks. To the North, darkness swallows the path.\n\nA time-worn chest lies at your feet."
     },
     options: (state) => [
-      { label: { it: "Vai a Nord (Grotta)", en: "Go North (Cave)" }, onSelect: () => move('cave') },
-      { label: { it: "Vai a Est (Altare)", en: "Go East (Altar)" }, onSelect: () => move('altar') },
-      { label: { it: "Esamina il terreno", en: "Examine ground" }, onSelect: () => {
-          if (!state.inventory.includes("Pietra")) {
-            state.inventory.push("Pietra");
-            setMessage("Hai trovato una Pietra focaia.", "You found a Flint Stone.");
-          } else {
-            setMessage("Non c'è altro qui.", "Nothing else here.");
-          }
-      }},
-    ]
-  },
-  cave: {
-    title: { it: "Grotta Oscura", en: "Dark Cave" },
-    desc: {
-      it: "L'umidità gocciola dalle pareti. Un crepaccio profondo blocca il sentiero a ovest.\n\nUno scrigno d'argento giace nell'angolo.",
-      en: "Moisture drips from the walls. A deep crevice blocks the path to the West.\n\nA silver chest lies in the corner."
-    },
-    options: (state) => [
+      { label: { it: "Vai a Nord (Oscurità)", en: "Go North (Darkness)" }, onSelect: () => move('dark_hall') },
       { label: { it: "Apri lo scrigno", en: "Open the chest" }, onSelect: () => {
-          if (!state.inventory.includes("Medaglione")) {
-            state.inventory.push("Medaglione");
-            state.hp += 20;
-            setMessage("Trovato Medaglione Antico! +20 HP", "Found Ancient Medallion! +20 HP");
+          if (!state.inventory.includes("Torcia")) {
+            state.inventory.push("Torcia");
+            setMessage("Hai trovato una Torcia spenta.", "You found an unlit Torch.");
           } else {
             setMessage("Lo scrigno è vuoto.", "The chest is empty.");
           }
       }},
-      { label: { it: "Salta il crepaccio", en: "Jump the crevice" }, onSelect: () => {
-          if (Math.random() > 0.5) {
-            move('ruins');
-            setMessage("Salto riuscito!", "Successful jump!");
+      { label: { it: "Guarda verso Ovest", en: "Look West" }, onSelect: () => setMessage("Vedi solo le montagne lontane.", "You see only distant mountains.") },
+    ]
+  },
+  dark_hall: {
+    title: { it: "Sala Oscura", en: "Dark Hall" },
+    desc: {
+      it: "L'aria è fredda e ferma. Senza una luce non puoi vedere dove metti i piedi.\n\nSenti un rumore di acqua che scorre verso Est.",
+      en: "The air is cold and still. Without a light, you cannot see where you step.\n\nYou hear the sound of running water to the East."
+    },
+    options: (state) => [
+      { label: { it: "Vai a Est (Acqua)", en: "Go East (Water)" }, onSelect: () => move('well') },
+      { label: { it: "Usa la Torcia", en: "Use Torch" }, onSelect: () => {
+          if (state.inventory.includes("Torcia")) {
+            setMessage("La torcia illumina una porta segreta a Nord!", "The torch reveals a secret door to the North!");
+            if (!state.inventory.includes("Luce")) state.inventory.push("Luce");
           } else {
-            state.hp -= 30;
-            setMessage("Sei caduto! -30 HP", "You fell! -30 HP");
+            setMessage("Non hai nulla per illuminare.", "You have nothing to light the way.");
+          }
+      }},
+      { label: { it: "Procedi a Nord", en: "Go North" }, onSelect: () => {
+          if (state.inventory.includes("Luce")) {
+            move('altar');
+          } else {
+            state.hp -= 20;
+            setMessage("Inciampi nel buio! -20 HP", "You trip in the dark! -20 HP");
             if (state.hp <= 0) state.stage = 'DEAD';
           }
       }},
-      { label: { it: "Torna alla foresta", en: "Return to forest" }, onSelect: () => move('forest') },
+      { label: { it: "Torna a Sud", en: "Go South" }, onSelect: () => move('entrance') },
+    ]
+  },
+  well: {
+    title: { it: "Il Pozzo", en: "The Well" },
+    desc: {
+      it: "Un antico pozzo di pietra occupa il centro della stanza. L'acqua brilla di un blu innaturale.\n\nUn'iscrizione recita: 'Solo il puro può bere'.",
+      en: "An ancient stone well occupies the center of the room. The water glows with an unnatural blue.\n\nAn inscription reads: 'Only the pure may drink'."
+    },
+    options: (state) => [
+      { label: { it: "Bevi l'acqua", en: "Drink water" }, onSelect: () => {
+          state.hp = Math.min(100, state.hp + 30);
+          setMessage("L'acqua ti rigenera. +30 HP", "The water regenerates you. +30 HP");
+      }},
+      { label: { it: "Esamina il pozzo", en: "Examine well" }, onSelect: () => {
+          if (!state.inventory.includes("Medaglione")) {
+            state.inventory.push("Medaglione");
+            setMessage("Hai trovato un Medaglione d'oro sul fondo!", "You found a golden Medallion at the bottom!");
+          } else {
+            setMessage("Non vedi altro nel pozzo.", "You see nothing else in the well.");
+          }
+      }},
+      { label: { it: "Torna a Ovest", en: "Go West" }, onSelect: () => move('dark_hall') },
     ]
   },
   altar: {
     title: { it: "Altare G2", en: "G2 Altar" },
     desc: {
-      it: "Un monolite di vetro brilla di una luce verde pulsante. Senti una voce nella tua testa.\n\n'Presenta l'artefatto per procedere'.",
-      en: "A glass monolith glows with a pulsing green light. You hear a voice in your head.\n\n'Present the artifact to proceed'."
+      it: "Un maestoso altare di cristallo vibra di energia. Una fessura circolare attende un oggetto.\n\nQuesto sembra il cuore delle Cronache.",
+      en: "A majestic crystal altar vibrates with energy. A circular slot awaits an object.\n\nThis feels like the heart of the Chronicles."
     },
     options: (state) => [
-      { label: { it: "Tocca il monolite", en: "Touch monolith" }, onSelect: () => {
+      { label: { it: "Inserisci Medaglione", en: "Insert Medallion" }, onSelect: () => {
           if (state.inventory.includes("Medaglione")) {
             state.stage = 'WIN';
           } else {
-            setMessage("Il monolite ti respinge.", "The monolith repels you.");
+            setMessage("Non hai nulla che si adatti.", "You have nothing that fits.");
             state.hp -= 10;
             if (state.hp <= 0) state.stage = 'DEAD';
           }
       }},
-      { label: { it: "Torna alla foresta", en: "Return to forest" }, onSelect: () => move('forest') },
-    ]
-  },
-  ruins: {
-    title: { it: "Rovine Perdute", en: "Lost Ruins" },
-    desc: {
-      it: "Mura di pietra crollate testimoniano una civiltà dimenticata. Vedi un'uscita a sud.",
-      en: "Crumbled stone walls bear witness to a forgotten civilization. You see an exit to the South."
-    },
-    options: (_state) => [
-      { label: { it: "Vai a Sud (Foresta)", en: "Go South (Forest)" }, onSelect: () => move('forest') },
-      { label: { it: "Cerca tesori", en: "Search for treasure" }, onSelect: () => {
-          setMessage("Trovi solo polvere e ricordi.", "You find only dust and memories.");
-      }},
+      { label: { it: "Torna a Sud", en: "Go South" }, onSelect: () => move('dark_hall') },
     ]
   }
 };
@@ -133,10 +138,10 @@ const ROOMS: Record<string, Room> = {
 // --- Global State ---
 
 let state: GameState = {
-  language: 'en',
+  language: 'it',
   stage: 'LANG_SELECT',
   playerName: '',
-  room: 'forest',
+  room: 'entrance',
   hp: 100,
   inventory: [],
   selectedIndex: 0,
@@ -145,7 +150,16 @@ let state: GameState = {
 
 let bridge: EvenAppBridge;
 
-// --- Helper Functions ---
+// --- UI Helpers ---
+
+const TITLE_ID = 1;
+const DESC_ID = 2;
+
+function updateStatus(text: string) {
+  const el = document.getElementById('status');
+  if (el) el.innerText = text;
+  console.log("Status:", text);
+}
 
 function setMessage(it: string, en: string) {
   state.message = { it, en };
@@ -157,57 +171,82 @@ function move(room: string) {
   state.message = null;
 }
 
-// --- UI Wrapper ---
+// --- SDK Wrapper ---
 
-const TITLE_ID = 1;
-const DESC_ID = 2;
-
+/**
+ * even.showCard: User-requested interface for rendering game content.
+ * Handles the mapping between the narrative and the Hub Bridge.
+ */
 const even = {
   showCard: async (title: string, description: string) => {
     if (!bridge) {
-      console.warn("Bridge not ready for render");
+      console.warn("Bridge not ready for showCard");
       return;
     }
-
-    const formattedDesc = description.split('\n').join('\n\n');
-
-    const titleText = new TextContainerProperty({
-      xPosition: 30,
-      yPosition: 20,
-      width: 516,
-      height: 40,
-      containerID: TITLE_ID,
-      containerName: 'title',
-      content: title.toUpperCase(),
-      borderColor: 8,
-      borderWidth: 1,
-      paddingLength: 4,
-    });
-
-    const descText = new TextContainerProperty({
-      xPosition: 30,
-      yPosition: 70,
-      width: 516,
-      height: 208,
-      containerID: DESC_ID,
-      containerName: 'desc',
-      content: formattedDesc,
-      isEventCapture: 1,
-      paddingLength: 10,
-    });
 
     try {
       await bridge.rebuildPageContainer(new RebuildPageContainer({
         containerTotalNum: 2,
-        textObject: [titleText, descText],
+        textObject: [
+          new TextContainerProperty({
+            xPosition: 30, yPosition: 20, width: 516, height: 40,
+            containerID: TITLE_ID, containerName: 'title', content: title.toUpperCase(),
+            borderColor: 8, borderWidth: 1, paddingLength: 4,
+          }),
+          new TextContainerProperty({
+            xPosition: 30, yPosition: 70, width: 516, height: 208,
+            containerID: DESC_ID, containerName: 'desc', content: description,
+            isEventCapture: 1, paddingLength: 10,
+          })
+        ]
       }));
     } catch (e) {
-      console.error("Failed to rebuild container:", e);
+      updateStatus(`Render Error: ${e}`);
     }
   }
 };
 
-// --- Game Logic Flow ---
+async function render() {
+  const lang = state.language;
+  const options = getOptions();
+
+  let title = "The G2 Chronicles";
+  let content = "";
+
+  if (state.stage === 'LANG_SELECT') {
+    title = "The G2 Chronicles";
+    content = "Seleziona Lingua / Select Language";
+  } else if (state.stage === 'NAME_SELECT') {
+    title = lang === 'it' ? "Scelta Eroe" : "Choose Hero";
+    content = lang === 'it' ? "Scegli il tuo nome:" : "Pick your name:";
+  } else if (state.stage === 'ADVENTURE') {
+    const room = ROOMS[state.room];
+    title = room.title[lang];
+    content = room.desc[lang];
+
+    if (state.message) {
+      content = `[!] ${state.message[lang]}\n\n${content}`;
+    }
+
+    const statusLine = lang === 'it' ? `HP: ${state.hp} | Zaino: ${state.inventory.length}` : `HP: ${state.hp} | Inv: ${state.inventory.length}`;
+    content += `\n\n${statusLine}\n---`;
+  } else if (state.stage === 'HELP') {
+    title = lang === 'it' ? "Aiuto" : "Help";
+    content = lang === 'it' ? "Anello R1:\n- Scorrimento: Naviga\n- Click: Conferma\n- Doppio Click: Aiuto" : "R1 Ring:\n- Scroll: Navigate\n- Click: Confirm\n- Double Click: Help";
+  } else if (state.stage === 'DEAD') {
+    title = lang === 'it' ? "FINE" : "GAME OVER";
+    content = lang === 'it' ? "Le tenebre ti hanno consumato." : "The darkness has consumed you.";
+  } else if (state.stage === 'WIN') {
+    title = lang === 'it' ? "VITTORIA" : "VICTORY";
+    content = lang === 'it' ? `Eroe ${state.playerName}, hai sbloccato il potere dei G2!` : `Hero ${state.playerName}, you unlocked the power of G2!`;
+  }
+
+  // Append options
+  content += "\n" + options.map((opt, i) => (i === state.selectedIndex ? `> ${opt.label[lang]}` : `  ${opt.label[lang]}`)).join("\n");
+
+  updateStatus(`Rendering stage: ${state.stage}`);
+  await even.showCard(title, content);
+}
 
 function getOptions(): GameOption[] {
   if (state.stage === 'LANG_SELECT') {
@@ -226,14 +265,14 @@ function getOptions(): GameOption[] {
     return ROOMS[state.room].options(state);
   }
   if (state.stage === 'HELP') {
-    return [{ label: { it: "Torna al gioco", en: "Back to game" }, onSelect: () => { state.stage = 'ADVENTURE'; } }];
+    return [{ label: { it: "Torna", en: "Back" }, onSelect: () => { state.stage = 'ADVENTURE'; } }];
   }
   if (state.stage === 'DEAD' || state.stage === 'WIN') {
     return [{ label: { it: "Ricomincia", en: "Restart" }, onSelect: () => {
       state.stage = 'LANG_SELECT';
       state.hp = 100;
       state.inventory = [];
-      state.room = 'forest';
+      state.room = 'entrance';
       state.message = null;
       state.selectedIndex = 0;
     } }];
@@ -241,48 +280,7 @@ function getOptions(): GameOption[] {
   return [];
 }
 
-async function render() {
-  const options = getOptions();
-  let title = "The G2 Chronicles";
-  let content = "";
-
-  const lang = state.language;
-
-  if (state.stage === 'LANG_SELECT') {
-    title = "Language / Lingua";
-    content = "Benvenuto in The G2 Chronicles.\nScegli la tua lingua:";
-  } else if (state.stage === 'NAME_SELECT') {
-    title = lang === 'it' ? "Selezione Eroe" : "Hero Selection";
-    content = lang === 'it' ? "Scorri i nomi e conferma:" : "Scroll names and select:";
-  } else if (state.stage === 'ADVENTURE') {
-    const room = ROOMS[state.room];
-    title = room.title[lang];
-    content = room.desc[lang];
-
-    if (state.message) {
-      content = `[!] ${state.message[lang]}\n\n${content}`;
-    }
-
-    const status = lang === 'it' ? `HP: ${state.hp} | ZAINO: ${state.inventory.length}` : `HP: ${state.hp} | INV: ${state.inventory.length}`;
-    content += `\n\n${status}\n---`;
-  } else if (state.stage === 'HELP') {
-    title = lang === 'it' ? "Aiuto" : "Help";
-    content = lang === 'it' ? "R1 Ring:\n- Scorri: Naviga bivi\n- Click: Conferma\n- Doppio Click: Aiuto" : "R1 Ring:\n- Scroll: Navigate paths\n- Click: Confirm\n- Double Click: Help";
-  } else if (state.stage === 'DEAD') {
-    title = lang === 'it' ? "SEI MORTO" : "YOU ARE DEAD";
-    content = lang === 'it' ? "La tua avventura finisce qui nelle tenebre." : "Your adventure ends here in darkness.";
-  } else if (state.stage === 'WIN') {
-    title = lang === 'it' ? "VITTORIA" : "VICTORY";
-    content = lang === 'it' ? `Complimenti ${state.playerName}! Hai sbloccato il potere dei G2.` : `Well done ${state.playerName}! You unlocked the power of G2.`;
-  }
-
-  // Add options with visual selection
-  content += "\n" + options.map((opt, i) => (i === state.selectedIndex ? `● ${opt.label[lang]}` : `○ ${opt.label[lang]}`)).join("\n");
-
-  await even.showCard(title, content);
-}
-
-// --- Handlers ---
+// --- Input Handling ---
 
 function handleScroll(direction: 'up' | 'down') {
   const options = getOptions();
@@ -304,43 +302,53 @@ function handleSelect() {
   }
 }
 
-// --- Start ---
+// --- Main ---
 
 async function main() {
-  console.log("Initializing G2 Chronicles...");
+  updateStatus("Waiting for Even Bridge...");
 
   try {
     bridge = await waitForEvenAppBridge();
-    console.log("Bridge connected");
+    updateStatus("Bridge Connected. Starting G2 Chronicles...");
 
-    // CRITICAL: Initialize both containers immediately during startup
-    // to match the structure used in rebuildPageContainer.
-    const result = await bridge.createStartUpPageContainer(
-      new CreateStartUpPageContainer({
-        containerTotalNum: 2,
-        textObject: [
-          new TextContainerProperty({
-            xPosition: 30, yPosition: 20, width: 516, height: 40,
-            containerID: TITLE_ID, containerName: 'title', content: 'LOADING...',
-          }),
-          new TextContainerProperty({
-            xPosition: 30, yPosition: 70, width: 516, height: 208,
-            containerID: DESC_ID, containerName: 'desc', content: 'Please wait...',
-            isEventCapture: 1
-          })
-        ],
-      })
-    );
+    // Initial container creation
+    const result = await bridge.createStartUpPageContainer(new CreateStartUpPageContainer({
+      containerTotalNum: 2,
+      textObject: [
+        new TextContainerProperty({
+          xPosition: 30, yPosition: 20, width: 516, height: 40,
+          containerID: TITLE_ID, containerName: 'title', content: 'G2 CHRONICLES',
+        }),
+        new TextContainerProperty({
+          xPosition: 30, yPosition: 70, width: 516, height: 208,
+          containerID: DESC_ID, containerName: 'desc', content: 'Inizializzazione...',
+          isEventCapture: 1
+        })
+      ]
+    }));
 
-    console.log("Startup container result:", result);
+    if (result !== 0) {
+      updateStatus(`SDK Init Error: ${result}`);
+      return;
+    }
 
+    // Hardware Events (R1 Ring)
+    // The SDK can deliver events via textEvent (for UI focus) or sysEvent (hardware direct)
     bridge.onEvenHubEvent((event) => {
-      if (event.textEvent) {
-        const type = event.textEvent.eventType;
-        if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) handleScroll('down');
-        else if (type === OsEventTypeList.SCROLL_TOP_EVENT) handleScroll('up');
-        else if (type === OsEventTypeList.CLICK_EVENT || type === undefined) handleSelect();
-        else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
+      const hubEvent = event.textEvent || event.sysEvent || event.listEvent;
+      if (hubEvent) {
+        const type = hubEvent.eventType;
+
+        // Log event for debugging if needed
+        console.log(`Hardware Event: ${type}`);
+
+        if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) {
+          handleScroll('down');
+        } else if (type === OsEventTypeList.SCROLL_TOP_EVENT) {
+          handleScroll('up');
+        } else if (type === OsEventTypeList.CLICK_EVENT) {
+          handleSelect();
+        } else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
           state.stage = 'HELP';
           state.selectedIndex = 0;
           render();
@@ -348,11 +356,11 @@ async function main() {
       }
     });
 
-    // Start rendering the first game screen
+    // Start
     await render();
 
   } catch (err) {
-    console.error("Initialization error:", err);
+    updateStatus(`Initialization failed: ${err}`);
   }
 }
 
