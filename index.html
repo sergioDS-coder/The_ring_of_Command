@@ -3,16 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>The G2 Chronicles</title>
+    <title>G2 Chronicles Debug</title>
   </head>
-  <body style="background: #000; margin: 0; padding: 20px; font-family: 'Courier New', Courier, monospace; color: #0f0; overflow: hidden;">
-    <h1 style="font-size: 1.2rem; margin-top: 0; border-bottom: 1px solid #0f0; padding-bottom: 5px;">The G2 Chronicles</h1>
-    <div id="status" style="margin-bottom: 10px; font-size: 0.9rem; color: #0a0;">
-      Status: Handshaking with G2...
-    </div>
-    <div id="logs" style="background: #000; color: #0f0; padding: 10px; font-size: 10px; height: 200px; overflow-y: auto; border: 1px solid #0a0;">
+  <body style="background: #000; margin: 0; padding: 20px; font-family: monospace; color: #0f0;">
+    <h2 id="status" style="font-size: 14px; margin: 0;">Status: Ready</h2>
+    <div id="logs" style="background: #111; color: #0f0; padding: 10px; font-size: 10px; height: 300px; overflow-y: auto; border: 1px solid #333; margin-top: 10px;">
       Init logs...
     </div>
     <script type="module" src="./src/index.ts"></script>
+    <script>
+      window.logToUI = (msg) => {
+        const logs = document.getElementById('logs');
+        if (logs) {
+          const div = document.createElement('div');
+          div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+          logs.appendChild(div);
+          logs.scrollTop = logs.scrollHeight;
+        }
+      };
+      window.onerror = (msg, url, line) => {
+        window.logToUI(`ERROR: ${msg} at ${line}`);
+      };
+    </script>
   </body>
 </html>

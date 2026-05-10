@@ -4,8 +4,18 @@ import {
     TextContainerProperty,
     TextContainerUpgrade,
     OsEventTypeList,
-    EvenAppBridge
+    EvenAppBridge,
+    EvenHubEvent
 } from '@evenrealities/even_hub_sdk';
+
+// --- Global UI Helper ---
+declare global {
+    interface Window { logToUI: (msg: string) => void; }
+}
+const log = (msg: string) => {
+    console.log(msg);
+    if (window.logToUI) window.logToUI(msg);
+};
 
 // --- Game Engine Types ---
 type Language = 'IT' | 'EN';
@@ -77,30 +87,7 @@ const HELP_TEXT: Record<Language, string> = {
     EN: "HELP:\nScroll: Navigate options / change letter.\nClick: Confirm action.\nDouble Click: Exit game."
 };
 
-// --- Even SDK Wrapper ---
-let _bridge: EvenAppBridge | null = null;
-
-const even = {
-    showCard: async (title: string, description: string) => {
-        if (!_bridge) return;
-        try {
-            await _bridge.textContainerUpgrade(new TextContainerUpgrade({
-                containerID: 0,
-                content: title
-            }));
-            await _bridge.textContainerUpgrade(new TextContainerUpgrade({
-                containerID: 1,
-                content: description
-            }));
-        } catch (e) {
-            console.error("showCard error", e);
-        }
-    }
-};
-
-// --- Game State Machine ---
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
-
+// --- Game Logic Instance ---
 let gameState: GameState = {
     phase: 'LANG',
     lang: 'IT',
@@ -114,185 +101,158 @@ let gameState: GameState = {
     tempMsg: ''
 };
 
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 let charIndex = 0;
 
-function resetGame() {
-    gameState = {
-        phase: 'LANG',
-        lang: 'IT',
-        name: '',
-        hp: 10,
-        inventory: [],
-        room: 'ENTRANCE',
-        cursor: 0,
-        options: ['ITALIANO', 'ENGLISH'],
-        showHelp: false,
-        tempMsg: ''
-    };
-    charIndex = 0;
+function getTitle() {
+    if (gameState.showHelp) return "Help / Aiuto";
+    if (gameState.phase === 'LANG') return "G2 Chronicles";
+    if (gameState.phase === 'NAME') return (gameState.lang === 'IT' ? "Nome: " : "Name: ") + gameState.name + ALPHABET[charIndex];
+    if (gameState.phase === 'DEAD') return gameState.lang === 'IT' ? "GAME OVER" : "YOU DIED";
+    if (gameState.phase === 'WIN') return gameState.lang === 'IT' ? "VITTORIA!" : "VICTORY!";
+    return ROOMS[gameState.lang][gameState.room].title;
 }
 
-// --- UI Logic ---
-function updateUI() {
-    let title = "";
-    let desc = "";
+function getDescription() {
+    if (gameState.showHelp) return HELP_TEXT[gameState.lang] + "\n\n(Click per chiudere)";
+    if (gameState.phase === 'LANG') return "Seleziona Lingua / Select Language\n\n" + (gameState.cursor === 0 ? "> ITALIANO" : "  ITALIANO") + "\n" + (gameState.cursor === 1 ? "> ENGLISH" : "  ENGLISH");
+    if (gameState.phase === 'NAME') return (gameState.lang === 'IT' ? "Scorri per cambiare lettera.\nSeleziona '_' per confermare." : "Scroll to change letter.\nSelect '_' to confirm.");
+    if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') return (gameState.phase === 'DEAD' ? (gameState.lang === 'IT' ? "La tua avventura finisce qui." : "Adventure ends here.") : (gameState.lang === 'IT' ? "Mondo salvo!" : "World saved!")) + (gameState.lang === 'IT' ? "\n\n> Ricomincia" : "\n\n> Restart");
 
-    if (gameState.showHelp) {
-        title = "Help / Aiuto";
-        desc = HELP_TEXT[gameState.lang] + "\n\n(Click per chiudere)";
-    } else if (gameState.phase === 'LANG') {
-        title = "The G2 Chronicles";
-        desc = "Seleziona Lingua / Select Language\n\n" +
-               (gameState.cursor === 0 ? "> ITALIANO" : "  ITALIANO") + "\n" +
-               (gameState.cursor === 1 ? "> ENGLISH" : "  ENGLISH");
-    } else if (gameState.phase === 'NAME') {
-        title = (gameState.lang === 'IT' ? "Nome: " : "Name: ") + gameState.name + ALPHABET[charIndex];
-        desc = (gameState.lang === 'IT' ? "Scorri per cambiare lettera.\nSeleziona '_' per confermare." : "Scroll to change letter.\nSelect '_' to confirm.");
-    } else if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') {
-        title = gameState.phase === 'DEAD' ? (gameState.lang === 'IT' ? "GAME OVER" : "YOU DIED") : (gameState.lang === 'IT' ? "VITTORIA!" : "VICTORY!");
-        desc = (gameState.phase === 'DEAD' ?
-                 (gameState.lang === 'IT' ? "La tua avventura finisce qui." : "Your adventure ends here.") :
-                 (gameState.lang === 'IT' ? "Hai trovato le G2 leggendarie! Il mondo è salvo." : "You found the legendary G2! The world is saved.")) +
-               (gameState.lang === 'IT' ? "\n\n> Ricomincia" : "\n\n> Restart");
-    } else {
-        const room = ROOMS[gameState.lang][gameState.room];
-        title = room.title;
-        desc = (gameState.tempMsg ? gameState.tempMsg + "\n\n" : "") + room.desc + "\n\nHP: " + gameState.hp;
-        if (gameState.inventory.length > 0) {
-            desc += "\nInv: " + gameState.inventory.join(", ");
-        }
-        desc += "\n\n";
-        room.options.forEach((opt, i) => {
-            desc += (i === gameState.cursor ? "> " : "  ") + opt + "\n";
-        });
-    }
-
-    even.showCard(title, desc);
+    const room = ROOMS[gameState.lang][gameState.room];
+    let d = (gameState.tempMsg ? gameState.tempMsg + "\n\n" : "") + room.desc + "\n\nHP: " + gameState.hp;
+    if (gameState.inventory.length > 0) d += "\nInv: " + gameState.inventory.join(", ");
+    d += "\n\n";
+    room.options.forEach((opt, i) => { d += (i === gameState.cursor ? "> " : "  ") + opt + "\n"; });
+    return d;
 }
 
-// --- Controls ---
-function onScroll(dir: 'UP' | 'DOWN') {
+// --- Even SDK Logic ---
+let _bridge: EvenAppBridge | null = null;
+
+async function syncUI() {
+    if (!_bridge) return;
+    const title = getTitle();
+    const desc = getDescription();
+    log(`Syncing UI: ${title.substring(0, 20)}...`);
+    try {
+        await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 0, content: title }));
+        await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 1, content: desc }));
+    } catch (e) { log("Sync Error: " + e); }
+}
+
+function handleScroll(dir: 'UP' | 'DOWN') {
     if (gameState.showHelp) return;
-
     if (gameState.phase === 'LANG') {
         gameState.cursor = (gameState.cursor + (dir === 'DOWN' ? 1 : -1) + 2) % 2;
     } else if (gameState.phase === 'NAME') {
-        const max = ALPHABET.length;
-        charIndex = (charIndex + (dir === 'DOWN' ? 1 : -1) + max) % max;
+        charIndex = (charIndex + (dir === 'DOWN' ? 1 : -1) + ALPHABET.length) % ALPHABET.length;
     } else if (gameState.phase === 'PLAY') {
         const max = ROOMS[gameState.lang][gameState.room].options.length;
         gameState.cursor = (gameState.cursor + (dir === 'DOWN' ? 1 : -1) + max) % max;
     }
-    updateUI();
+    syncUI();
 }
 
-function onSelect() {
+function handleSelect() {
+    log("Select trigger triggered");
     gameState.tempMsg = '';
     if (gameState.showHelp) {
         gameState.showHelp = false;
-        updateUI();
+        syncUI();
         return;
     }
 
     if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') {
-        resetGame();
+        gameState.phase = 'LANG';
+        gameState.hp = 10;
+        gameState.inventory = [];
+        gameState.room = 'ENTRANCE';
+        gameState.cursor = 0;
+        charIndex = 0;
+        gameState.name = '';
     } else if (gameState.phase === 'LANG') {
         gameState.lang = gameState.cursor === 0 ? 'IT' : 'EN';
         gameState.phase = 'NAME';
     } else if (gameState.phase === 'NAME') {
         const char = ALPHABET[charIndex];
         if (char === '_') {
-            if (gameState.name.length > 0) {
-                gameState.phase = 'PLAY';
-                gameState.cursor = 0;
-            }
-        } else if (gameState.name.length < 8) {
-            gameState.name += char;
-        }
+            if (gameState.name.length > 0) { gameState.phase = 'PLAY'; gameState.cursor = 0; }
+        } else if (gameState.name.length < 8) { gameState.name += char; }
     } else if (gameState.phase === 'PLAY') {
-        processAction();
-    }
-    updateUI();
-}
-
-function processAction() {
-    const roomData = ROOMS[gameState.lang][gameState.room];
-    const choice = gameState.cursor;
-    const optionText = roomData.options[choice];
-
-    // Check if Help was selected
-    if (optionText === "Help" || optionText === "Aiuto") {
-        gameState.showHelp = true;
-        return;
-    }
-
-    const room = gameState.room;
-    if (room === 'ENTRANCE') {
-        if (choice === 0) gameState.room = 'HALL';
-        else if (choice === 1) gameState.tempMsg = gameState.lang === 'IT' ? "Non trovi nulla." : "You find nothing.";
-    } else if (room === 'HALL') {
-        if (choice === 0) { gameState.room = 'WELL'; gameState.hp -= 1; }
-        else if (choice === 1) gameState.room = 'ALTAR';
-        else if (choice === 2) gameState.room = 'ENTRANCE';
-    } else if (room === 'WELL') {
-        if (choice === 0) {
-            const item = gameState.lang === 'IT' ? "Torcia" : "Torch";
-            if (!gameState.inventory.includes(item)) {
-                gameState.inventory.push(item);
-                gameState.tempMsg = gameState.lang === 'IT' ? "Hai preso la torcia!" : "You took the torch!";
+        const roomData = ROOMS[gameState.lang][gameState.room];
+        const optionText = roomData.options[gameState.cursor];
+        if (optionText === "Help" || optionText === "Aiuto") {
+            gameState.showHelp = true;
+        } else {
+            if (gameState.room === 'ENTRANCE') {
+                if (gameState.cursor === 0) gameState.room = 'HALL';
+                else gameState.tempMsg = gameState.lang === 'IT' ? "Nulla." : "Nothing.";
+            } else if (gameState.room === 'HALL') {
+                if (gameState.cursor === 0) { gameState.room = 'WELL'; gameState.hp -= 1; }
+                else if (gameState.cursor === 1) gameState.room = 'ALTAR';
+                else if (gameState.cursor === 2) gameState.room = 'ENTRANCE';
+            } else if (gameState.room === 'WELL') {
+                if (gameState.cursor === 0) {
+                    const item = gameState.lang === 'IT' ? "Torcia" : "Torch";
+                    if (!gameState.inventory.includes(item)) gameState.inventory.push(item);
+                } else if (gameState.cursor === 1) gameState.room = 'HALL';
+            } else if (gameState.room === 'ALTAR') {
+                if (gameState.cursor === 0) gameState.phase = 'WIN';
+                else if (gameState.cursor === 1) gameState.room = 'HALL';
             }
-        } else if (choice === 1) gameState.room = 'HALL';
-    } else if (room === 'ALTAR') {
-        if (choice === 0) gameState.phase = 'WIN';
-        else if (choice === 1) gameState.room = 'HALL';
+            if (gameState.hp <= 0) gameState.phase = 'DEAD';
+            gameState.cursor = 0;
+        }
     }
-
-    if (gameState.hp <= 0) gameState.phase = 'DEAD';
-    gameState.cursor = 0;
+    syncUI();
 }
 
-// --- Initialization ---
 async function init() {
+    log("Init starting...");
     _bridge = await waitForEvenAppBridge();
+    log("Bridge ready");
 
-    const titleContainer = new TextContainerProperty({
+    const tProp = new TextContainerProperty({
         xPosition: 40, yPosition: 16, width: 496, height: 56,
-        containerID: 0, containerName: "title", content: "G2 Chronicles"
+        containerID: 0, containerName: "t", content: getTitle(),
+        isEventCapture: 1
     });
-
-    const descContainer = new TextContainerProperty({
+    const dProp = new TextContainerProperty({
         xPosition: 40, yPosition: 80, width: 496, height: 192,
-        containerID: 1, containerName: "desc", content: "Init...",
+        containerID: 1, containerName: "d", content: getDescription(),
         isEventCapture: 1
     });
 
-    await _bridge.createStartUpPageContainer(new CreateStartUpPageContainer({
+    const res = await _bridge.createStartUpPageContainer(new CreateStartUpPageContainer({
         containerTotalNum: 2,
-        textObject: [titleContainer, descContainer]
+        textObject: [tProp, dProp]
     }));
+    log("Layout Created: " + res);
 
-    updateUI();
+    _bridge.onEvenHubEvent((event: EvenHubEvent) => {
+        // DETAILED LOGGING FOR TROUBLESHOOTING
+        log(`Event: sys=${event.sysEvent?.eventType}, text=${event.textEvent?.eventType}, list=${event.listEvent?.eventType}`);
 
-    _bridge.onEvenHubEvent((event) => {
-        // Correctly handle input priority
-        const sys = event.sysEvent?.eventType;
-        const text = event.textEvent?.eventType;
-        const list = event.listEvent?.eventType;
-        const type = sys !== undefined ? sys : (text !== undefined ? text : list);
+        const type = event.sysEvent?.eventType ?? event.textEvent?.eventType ?? event.listEvent?.eventType;
 
+        // CLICK_EVENT is 0, so we must check for undefined explicitly
         if (type === undefined) return;
 
         if (type === OsEventTypeList.SCROLL_TOP_EVENT) {
-            onScroll('UP');
+            handleScroll('UP');
         } else if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) {
-            onScroll('DOWN');
+            handleScroll('DOWN');
         } else if (type === OsEventTypeList.CLICK_EVENT) {
-            onSelect();
+            handleSelect();
         } else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
-            // Global Exit rule for Even Realities
+            log("Exiting App...");
             if (_bridge) _bridge.shutDownPageContainer(1);
         }
     });
+
+    // Forced initial sync to be sure
+    await syncUI();
 }
 
-init().catch(console.error);
+init().catch(e => log("Init Error: " + e));
