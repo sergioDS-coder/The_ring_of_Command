@@ -5,16 +5,15 @@ import {
   RebuildPageContainer,
   EvenAppBridge,
   OsEventTypeList,
+  StartUpPageCreateResult,
 } from '@evenrealities/even_hub_sdk';
 
 /**
  * THE G2 CHRONICLES
  * A Pure Text Adventure for Even Realities G2
- *
- * Hardware Compatibility: Even Realities G2 + R1 Ring
  */
 
-// --- Types & Interfaces ---
+// --- Types ---
 
 type Language = 'it' | 'en';
 
@@ -40,7 +39,7 @@ interface GameState {
   message: { [key in Language]: string } | null;
 }
 
-// --- Content Data (Zork Style) ---
+// --- Data ---
 
 const NAMES = ["Alaric", "Elara", "Kaelen", "Valerius"];
 
@@ -135,7 +134,7 @@ const ROOMS: Record<string, Room> = {
   }
 };
 
-// --- Global State ---
+// --- State ---
 
 let state: GameState = {
   language: 'it',
@@ -149,16 +148,19 @@ let state: GameState = {
 };
 
 let bridge: EvenAppBridge;
-
-// --- UI Helpers ---
+let isStarted = false;
 
 const TITLE_ID = 1;
 const DESC_ID = 2;
 
+// --- Helpers ---
+
 function updateStatus(text: string) {
   const el = document.getElementById('status');
-  if (el) el.innerText = text;
-  console.log("Status:", text);
+  if (el) {
+    el.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${text}</div>`;
+  }
+  console.log(text);
 }
 
 function setMessage(it: string, en: string) {
@@ -169,83 +171,6 @@ function move(room: string) {
   state.room = room;
   state.selectedIndex = 0;
   state.message = null;
-}
-
-// --- SDK Wrapper ---
-
-/**
- * even.showCard: User-requested interface for rendering game content.
- * Handles the mapping between the narrative and the Hub Bridge.
- */
-const even = {
-  showCard: async (title: string, description: string) => {
-    if (!bridge) {
-      console.warn("Bridge not ready for showCard");
-      return;
-    }
-
-    try {
-      await bridge.rebuildPageContainer(new RebuildPageContainer({
-        containerTotalNum: 2,
-        textObject: [
-          new TextContainerProperty({
-            xPosition: 30, yPosition: 20, width: 516, height: 40,
-            containerID: TITLE_ID, containerName: 'title', content: title.toUpperCase(),
-            borderColor: 8, borderWidth: 1, paddingLength: 4,
-          }),
-          new TextContainerProperty({
-            xPosition: 30, yPosition: 70, width: 516, height: 208,
-            containerID: DESC_ID, containerName: 'desc', content: description,
-            isEventCapture: 1, paddingLength: 10,
-          })
-        ]
-      }));
-    } catch (e) {
-      updateStatus(`Render Error: ${e}`);
-    }
-  }
-};
-
-async function render() {
-  const lang = state.language;
-  const options = getOptions();
-
-  let title = "The G2 Chronicles";
-  let content = "";
-
-  if (state.stage === 'LANG_SELECT') {
-    title = "The G2 Chronicles";
-    content = "Seleziona Lingua / Select Language";
-  } else if (state.stage === 'NAME_SELECT') {
-    title = lang === 'it' ? "Scelta Eroe" : "Choose Hero";
-    content = lang === 'it' ? "Scegli il tuo nome:" : "Pick your name:";
-  } else if (state.stage === 'ADVENTURE') {
-    const room = ROOMS[state.room];
-    title = room.title[lang];
-    content = room.desc[lang];
-
-    if (state.message) {
-      content = `[!] ${state.message[lang]}\n\n${content}`;
-    }
-
-    const statusLine = lang === 'it' ? `HP: ${state.hp} | Zaino: ${state.inventory.length}` : `HP: ${state.hp} | Inv: ${state.inventory.length}`;
-    content += `\n\n${statusLine}\n---`;
-  } else if (state.stage === 'HELP') {
-    title = lang === 'it' ? "Aiuto" : "Help";
-    content = lang === 'it' ? "Anello R1:\n- Scorrimento: Naviga\n- Click: Conferma\n- Doppio Click: Aiuto" : "R1 Ring:\n- Scroll: Navigate\n- Click: Confirm\n- Double Click: Help";
-  } else if (state.stage === 'DEAD') {
-    title = lang === 'it' ? "FINE" : "GAME OVER";
-    content = lang === 'it' ? "Le tenebre ti hanno consumato." : "The darkness has consumed you.";
-  } else if (state.stage === 'WIN') {
-    title = lang === 'it' ? "VITTORIA" : "VICTORY";
-    content = lang === 'it' ? `Eroe ${state.playerName}, hai sbloccato il potere dei G2!` : `Hero ${state.playerName}, you unlocked the power of G2!`;
-  }
-
-  // Append options
-  content += "\n" + options.map((opt, i) => (i === state.selectedIndex ? `> ${opt.label[lang]}` : `  ${opt.label[lang]}`)).join("\n");
-
-  updateStatus(`Rendering stage: ${state.stage}`);
-  await even.showCard(title, content);
 }
 
 function getOptions(): GameOption[] {
@@ -280,7 +205,108 @@ function getOptions(): GameOption[] {
   return [];
 }
 
-// --- Input Handling ---
+function getFrameContent() {
+  const lang = state.language;
+  const options = getOptions();
+
+  let title = "THE G2 CHRONICLES";
+  let content = "";
+
+  if (state.stage === 'LANG_SELECT') {
+    content = "Seleziona Lingua\nSelect Language";
+  } else if (state.stage === 'NAME_SELECT') {
+    title = lang === 'it' ? "SCELTA EROE" : "CHOOSE HERO";
+    content = lang === 'it' ? "Scegli il tuo nome:" : "Pick your name:";
+  } else if (state.stage === 'ADVENTURE') {
+    const room = ROOMS[state.room];
+    title = room.title[lang].toUpperCase();
+    content = room.desc[lang];
+
+    if (state.message) {
+      content = `[!] ${state.message[lang]}\n\n${content}`;
+    }
+
+    const statusLine = lang === 'it' ? `HP: ${state.hp} | Zaino: ${state.inventory.length}` : `HP: ${state.hp} | Inv: ${state.inventory.length}`;
+    content += `\n\n${statusLine}\n---`;
+  } else if (state.stage === 'HELP') {
+    title = lang === 'it' ? "AIUTO" : "HELP";
+    content = lang === 'it' ? "Anello R1:\n- Scorri: Naviga\n- Click: Conferma\n- Doppio: Aiuto" : "R1 Ring:\n- Scroll: Navigate\n- Click: Confirm\n- Double: Help";
+  } else if (state.stage === 'DEAD') {
+    title = lang === 'it' ? "FINE" : "GAME OVER";
+    content = lang === 'it' ? "Le tenebre ti hanno consumato." : "The darkness has consumed you.";
+  } else if (state.stage === 'WIN') {
+    title = lang === 'it' ? "VITTORIA" : "VICTORY";
+    content = lang === 'it' ? `Eroe ${state.playerName}, hai sbloccato il potere dei G2!` : `Hero ${state.playerName}, you unlocked the power of G2!`;
+  }
+
+  // Options rendering
+  content += "\n" + options.map((opt, i) => (i === state.selectedIndex ? `> ${opt.label[lang]}` : `  ${opt.label[lang]}`)).join("\n");
+
+  return { title, content };
+}
+
+// --- SDK Logic & Wrapper ---
+
+/**
+ * Required even.showCard implementation
+ */
+const even = {
+  showCard: async (title: string, content: string) => {
+    if (!bridge) return;
+
+    try {
+      if (!isStarted) {
+        updateStatus("First render: createStartUpPageContainer...");
+        const result = await bridge.createStartUpPageContainer(new CreateStartUpPageContainer({
+          containerTotalNum: 2,
+          textObject: [
+            new TextContainerProperty({
+              xPosition: 28, yPosition: 12, width: 520, height: 48,
+              containerID: TITLE_ID, containerName: 'title', content: title.toUpperCase(),
+              borderColor: 7, borderWidth: 1, paddingLength: 4,
+            }),
+            new TextContainerProperty({
+              xPosition: 28, yPosition: 68, width: 520, height: 208,
+              containerID: DESC_ID, containerName: 'desc', content: content,
+              isEventCapture: 1, paddingLength: 8,
+            })
+          ]
+        }));
+
+        if (result === StartUpPageCreateResult.success) {
+          isStarted = true;
+          updateStatus("Display initialized.");
+        } else {
+          updateStatus(`Display init code: ${result}`);
+          // Force isStarted true anyway to try rebuild as fallback
+          isStarted = true;
+        }
+      } else {
+        await bridge.rebuildPageContainer(new RebuildPageContainer({
+          containerTotalNum: 2,
+          textObject: [
+            new TextContainerProperty({
+              xPosition: 28, yPosition: 12, width: 520, height: 48,
+              containerID: TITLE_ID, containerName: 'title', content: title.toUpperCase(),
+            }),
+            new TextContainerProperty({
+              xPosition: 28, yPosition: 68, width: 520, height: 208,
+              containerID: DESC_ID, containerName: 'desc', content: content,
+              isEventCapture: 1
+            })
+          ]
+        }));
+      }
+    } catch (err) {
+      updateStatus(`Render error: ${err}`);
+    }
+  }
+};
+
+async function render() {
+  const { title, content } = getFrameContent();
+  await even.showCard(title, content);
+}
 
 function handleScroll(direction: 'up' | 'down') {
   const options = getOptions();
@@ -304,64 +330,52 @@ function handleSelect() {
 
 // --- Main ---
 
-async function main() {
-  updateStatus("Waiting for Even Bridge...");
+async function start() {
+  updateStatus("Application started. Searching for bridge...");
 
+  // Resilient Bridge Handshake
   try {
-    bridge = await waitForEvenAppBridge();
-    updateStatus("Bridge Connected. Starting G2 Chronicles...");
-
-    // Initial container creation
-    const result = await bridge.createStartUpPageContainer(new CreateStartUpPageContainer({
-      containerTotalNum: 2,
-      textObject: [
-        new TextContainerProperty({
-          xPosition: 30, yPosition: 20, width: 516, height: 40,
-          containerID: TITLE_ID, containerName: 'title', content: 'G2 CHRONICLES',
-        }),
-        new TextContainerProperty({
-          xPosition: 30, yPosition: 70, width: 516, height: 208,
-          containerID: DESC_ID, containerName: 'desc', content: 'Inizializzazione...',
-          isEventCapture: 1
-        })
-      ]
-    }));
-
-    if (result !== 0) {
-      updateStatus(`SDK Init Error: ${result}`);
-      return;
-    }
-
-    // Hardware Events (R1 Ring)
-    // The SDK can deliver events via textEvent (for UI focus) or sysEvent (hardware direct)
-    bridge.onEvenHubEvent((event) => {
-      const hubEvent = event.textEvent || event.sysEvent || event.listEvent;
-      if (hubEvent) {
-        const type = hubEvent.eventType;
-
-        // Log event for debugging if needed
-        console.log(`Hardware Event: ${type}`);
-
-        if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) {
-          handleScroll('down');
-        } else if (type === OsEventTypeList.SCROLL_TOP_EVENT) {
-          handleScroll('up');
-        } else if (type === OsEventTypeList.CLICK_EVENT) {
-          handleSelect();
-        } else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
-          state.stage = 'HELP';
-          state.selectedIndex = 0;
-          render();
-        }
-      }
-    });
-
-    // Start
-    await render();
-
+    bridge = await Promise.race([
+      waitForEvenAppBridge(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Bridge timeout")), 5000))
+    ]);
+    updateStatus("Bridge linked.");
   } catch (err) {
-    updateStatus(`Initialization failed: ${err}`);
+    updateStatus(`Bridge failed: ${err}. Attempting manual init...`);
+    bridge = EvenAppBridge.getInstance();
   }
+
+  // Setup Event Listeners
+  bridge.onEvenHubEvent((event) => {
+    // Log to phone for debugging
+    if (event.sysEvent) updateStatus(`Sys Event: ${event.sysEvent.eventType}`);
+    if (event.textEvent) updateStatus(`Text Event: ${event.textEvent.eventType}`);
+
+    const hubEvent = event.textEvent || event.sysEvent || event.listEvent;
+    if (hubEvent) {
+      const type = hubEvent.eventType;
+      if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) {
+        handleScroll('down');
+      } else if (type === OsEventTypeList.SCROLL_TOP_EVENT) {
+        handleScroll('up');
+      } else if (type === OsEventTypeList.CLICK_EVENT) {
+        handleSelect();
+      } else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
+        state.stage = 'HELP';
+        state.selectedIndex = 0;
+        render();
+      }
+    }
+  });
+
+  // Initial render
+  await render();
 }
 
-main();
+// Global error handler
+window.onerror = (msg, _url, line) => {
+  updateStatus(`GLOBAL ERROR: ${msg} at ${line}`);
+  return false;
+};
+
+start();
