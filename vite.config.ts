@@ -1,11 +1,19 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: './', // Ensures relative paths for assets in the Even App WebView
+  base: './',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    minify: 'esbuild', // Faster and built-in
+    minify: 'esbuild',
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+        entryFileNames: `assets/[name].js`,
+        chunkFileNames: `assets/[name].js`,
+        assetFileNames: `assets/[name].[ext]`
+      }
+    }
   },
 });
