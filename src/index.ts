@@ -130,26 +130,40 @@ async function syncUI() {
     const desc = getDescription();
     log(`Syncing UI: ${title}`);
     try {
-        await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 0, content: title }));
-        await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 1, content: desc }));
+        await _bridge.textContainerUpgrade(new TextContainerUpgrade({
+            containerID: 0,
+            content: title
+        }));
+        await _bridge.textContainerUpgrade(new TextContainerUpgrade({
+            containerID: 1,
+            content: desc
+        }));
     } catch (e) { log("Sync Error: " + e); }
 }
 
 async function init() {
-    updateStatus("Connecting to Bridge...");
+    updateStatus("Connecting...");
     _bridge = await waitForEvenAppBridge();
-    updateStatus("Bridge Connected!");
-    log("Bridge ready. Creating Startup layout...");
+    updateStatus("Connected!");
 
-    // STRICT ALIGNMENT: 0-based IDs, multiples of 8
+    // Use the layout that worked before the "invalid" errors
     const tProp = new TextContainerProperty({
-        xPosition: 40, yPosition: 16, width: 496, height: 48,
-        containerID: 0, containerName: "title", content: getTitle(),
+        containerID: 0,
+        xPosition: 40,
+        yPosition: 16,
+        width: 496,
+        height: 56,
+        content: getTitle(),
         isEventCapture: 1
     });
+
     const dProp = new TextContainerProperty({
-        xPosition: 40, yPosition: 80, width: 496, height: 176,
-        containerID: 1, containerName: "desc", content: getDescription(),
+        containerID: 1,
+        xPosition: 40,
+        yPosition: 80,
+        width: 496,
+        height: 192,
+        content: getDescription(),
         isEventCapture: 1
     });
 
@@ -159,9 +173,8 @@ async function init() {
             textObject: [tProp, dProp]
         });
 
-        // Remove widgetId or other non-essential props that might trigger 'invalid'
         const res = await _bridge.createStartUpPageContainer(layout);
-        log("Layout response: " + res);
+        log("Layout Response: " + res);
 
         if (res === 0) {
             updateStatus("Display Active");
@@ -169,18 +182,33 @@ async function init() {
             updateStatus(`Layout Error: ${res}`);
         }
     } catch (e) {
-        log("Layout Error: " + e);
-        updateStatus("Layout Error");
+        log("Init Exception: " + e);
+        updateStatus("Init Exception");
     }
 
     _bridge.onEvenHubEvent((event: EvenHubEvent) => {
+        // Explicitly check all event sources
         const sys = event.sysEvent?.eventType;
         const text = event.textEvent?.eventType;
         const list = event.listEvent?.eventType;
-        const type = sys !== undefined ? sys : (text !== undefined ? text : list);
 
-        log(`Event received: ${type}`);
-        if (type === undefined) return;
+        // Log raw for deep debugging
+        log(`RAW: ${JSON.stringify(event)}`);
+
+        let type: OsEventTypeList | undefined = undefined;
+        if (sys !== undefined) type = sys;
+        else if (text !== undefined) type = text;
+        else if (list !== undefined) type = list;
+
+        log(`Event: ${type} (sys=${sys}, text=${text})`);
+
+        if (type === undefined) {
+            // Check if it's a click that came through without OsEventTypeList mapping
+            if (event.textEvent && (event.textEvent as any).type === 0) type = 0;
+            else if (event.sysEvent && (event.sysEvent as any).type === 0) type = 0;
+
+            if (type === undefined) return;
+        }
 
         if (type === OsEventTypeList.SCROLL_TOP_EVENT) {
             if (!gameState.showHelp) {
@@ -225,14 +253,14 @@ async function init() {
                 }
             }
         } else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
-            log("Global Exit Dialogue...");
+            log("Exit...");
             if (_bridge) _bridge.shutDownPageContainer(1);
         }
         syncUI();
     });
 
-    // Initial sync
-    setTimeout(() => syncUI(), 800);
+    // Final forced refresh
+    setTimeout(() => syncUI(), 1000);
 }
 
-init().catch(e => { log("CRITICAL INIT ERROR: " + e); updateStatus("Fatal Error"); });
+init().catch(e => log("Fatal: " + e));

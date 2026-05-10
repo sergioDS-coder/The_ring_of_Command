@@ -11,7 +11,7 @@
   "permissions": [
     {
       "name": "network",
-      "desc": "Required for bridge communication and loading game assets."
+      "desc": "Required for bridge communication."
     }
   ],
   "supported_languages": ["en", "it"]
