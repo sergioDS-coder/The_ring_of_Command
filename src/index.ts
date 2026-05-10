@@ -21,6 +21,7 @@ interface GameState {
     cursor: number;
     options: string[];
     showHelp: boolean;
+    tempMsg: string;
 }
 
 const ROOMS: Record<Language, Record<Room, { title: string; desc: string; options: string[] }>> = {
@@ -85,16 +86,33 @@ class G2Chronicles {
         room: 'ENTRANCE',
         cursor: 0,
         options: ['ITALIANO', 'ENGLISH'],
-        showHelp: false
+        showHelp: false,
+        tempMsg: ''
     };
 
     private alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
     private charIndex = 0;
 
+    reset() {
+        this.state = {
+            phase: 'LANG',
+            lang: 'IT',
+            name: '',
+            hp: 10,
+            inventory: [],
+            room: 'ENTRANCE',
+            cursor: 0,
+            options: ['ITALIANO', 'ENGLISH'],
+            showHelp: false,
+            tempMsg: ''
+        };
+        this.charIndex = 0;
+    }
+
     getTitle(): string {
         if (this.state.showHelp) return "Help / Aiuto";
         if (this.state.phase === 'LANG') return "The G2 Chronicles";
-        if (this.state.phase === 'NAME') return "Nome: " + this.state.name + this.alphabet[this.charIndex];
+        if (this.state.phase === 'NAME') return (this.state.lang === 'IT' ? "Nome: " : "Name: ") + this.state.name + this.alphabet[this.charIndex];
         if (this.state.phase === 'DEAD') return this.state.lang === 'IT' ? "GAME OVER" : "YOU DIED";
         if (this.state.phase === 'WIN') return this.state.lang === 'IT' ? "VITTORIA!" : "VICTORY!";
         return ROOMS[this.state.lang][this.state.room].title;
@@ -104,11 +122,17 @@ class G2Chronicles {
         if (this.state.showHelp) return HELP_TEXT[this.state.lang];
         if (this.state.phase === 'LANG') return "Seleziona Lingua / Select Language";
         if (this.state.phase === 'NAME') return "Scorri per cambiare lettera.\nSeleziona '_' per confermare il nome.";
-        if (this.state.phase === 'DEAD') return "La tua avventura finisce qui.";
-        if (this.state.phase === 'WIN') return "Hai trovato le G2 leggendarie! Il mondo è salvo.";
+        if (this.state.phase === 'DEAD' || this.state.phase === 'WIN') {
+            return (this.state.phase === 'DEAD' ? "La tua avventura finisce qui." : "Hai trovato le G2 leggendarie! Il mondo è salvo.") +
+                   (this.state.lang === 'IT' ? "\n\n> Ricomincia" : "\n\n> Restart");
+        }
 
         const room = ROOMS[this.state.lang][this.state.room];
-        let d = room.desc + "\n\nHP: " + this.state.hp + "\n\n";
+        let d = (this.state.tempMsg ? this.state.tempMsg + "\n\n" : "") + room.desc + "\n\nHP: " + this.state.hp;
+        if (this.state.inventory.length > 0) {
+            d += "\nInv: " + this.state.inventory.join(", ");
+        }
+        d += "\n\n";
         room.options.forEach((opt, i) => {
             d += (i === this.state.cursor ? "> " : "  ") + opt + "\n";
         });
@@ -118,7 +142,7 @@ class G2Chronicles {
     handleScroll(dir: 'UP' | 'DOWN') {
         if (this.state.showHelp) return;
         if (this.state.phase === 'LANG' || this.state.phase === 'PLAY') {
-            const max = this.state.options.length;
+            const max = (this.state.phase === 'LANG') ? 2 : ROOMS[this.state.lang][this.state.room].options.length;
             if (dir === 'DOWN') this.state.cursor = (this.state.cursor + 1) % max;
             else this.state.cursor = (this.state.cursor - 1 + max) % max;
         } else if (this.state.phase === 'NAME') {
@@ -129,8 +153,13 @@ class G2Chronicles {
     }
 
     handleSelect() {
+        this.state.tempMsg = '';
         if (this.state.showHelp) {
             this.state.showHelp = false;
+            return;
+        }
+        if (this.state.phase === 'DEAD' || this.state.phase === 'WIN') {
+            this.reset();
             return;
         }
         if (this.state.phase === 'LANG') {
@@ -163,14 +192,27 @@ class G2Chronicles {
     private processAction() {
         const choice = this.state.cursor;
         if (this.state.room === 'ENTRANCE') {
-            if (choice === 0) { this.state.room = 'HALL'; }
+            if (choice === 0) {
+                this.state.room = 'HALL';
+            } else {
+                this.state.tempMsg = this.state.lang === 'IT' ? "Non trovi nulla di utile tra i cespugli." : "You find nothing useful in the bushes.";
+            }
         } else if (this.state.room === 'HALL') {
             if (choice === 0) { this.state.room = 'WELL'; this.state.hp -= 1; }
             else if (choice === 1) { this.state.room = 'ALTAR'; }
             else if (choice === 2) { this.state.room = 'ENTRANCE'; }
         } else if (this.state.room === 'WELL') {
-            if (choice === 0) { this.state.inventory.push("Torch"); }
-            else { this.state.room = 'HALL'; }
+            if (choice === 0) {
+                const torch = this.state.lang === 'IT' ? "Torcia" : "Torch";
+                if (!this.state.inventory.includes(torch)) {
+                    this.state.inventory.push(torch);
+                    this.state.tempMsg = this.state.lang === 'IT' ? "Hai preso la torcia!" : "You took the torch!";
+                } else {
+                    this.state.tempMsg = this.state.lang === 'IT' ? "Hai già la torcia." : "You already have the torch.";
+                }
+            } else {
+                this.state.room = 'HALL';
+            }
         } else if (this.state.room === 'ALTAR') {
             if (choice === 0) { this.state.phase = 'WIN'; }
             else { this.state.room = 'HALL'; }
@@ -184,45 +226,34 @@ class G2Chronicles {
 // --- Bridge Integration ---
 
 const game = new G2Chronicles();
-const log = (msg: string) => {
-    const el = document.getElementById('logs');
-    if (el) el.innerHTML = `[${Date.now()}] ${msg}<br>` + el.innerHTML;
-    console.log(msg);
-};
 
 async function render(bridge: EvenAppBridge) {
     const title = game.getTitle();
     const desc = game.getDescription();
 
-    log(`UI: ${title.substring(0,10)}...`);
-
     try {
         await bridge.textContainerUpgrade(new TextContainerUpgrade({
-            containerID: 10,
+            containerID: 0,
             content: title
         }));
         await bridge.textContainerUpgrade(new TextContainerUpgrade({
-            containerID: 11,
+            containerID: 1,
             content: desc
         }));
     } catch (e) {
-        log("Sync...");
+        console.error("Render error", e);
     }
 }
 
 async function init() {
-    log("Booting G2 Chronicles...");
     const bridge = await waitForEvenAppBridge();
-    log("Bridge Ready.");
-
-    await new Promise(r => setTimeout(r, 1000));
 
     const titleContainer = new TextContainerProperty({
         xPosition: 40,
         yPosition: 16,
         width: 496,
         height: 56,
-        containerID: 10,
+        containerID: 0,
         containerName: "title",
         content: game.getTitle()
     });
@@ -232,7 +263,7 @@ async function init() {
         yPosition: 80,
         width: 496,
         height: 192,
-        containerID: 11,
+        containerID: 1,
         containerName: "desc",
         content: game.getDescription(),
         isEventCapture: 1
@@ -243,17 +274,14 @@ async function init() {
         textObject: [titleContainer, descContainer]
     });
 
-    log("Creating Startup...");
-    const res = await bridge.createStartUpPageContainer(startUpLayout);
-    log(`Result: ${res}`);
-
+    await bridge.createStartUpPageContainer(startUpLayout);
     await render(bridge);
 
     bridge.onEvenHubEvent((event) => {
-        const type = event.textEvent?.eventType;
+        // sysEvent is for hardware button events (ring/glasses)
+        // textEvent/listEvent are for UI interactions (less likely here but good for fallback)
+        const type = event.sysEvent?.eventType ?? event.textEvent?.eventType ?? event.listEvent?.eventType;
         if (type === undefined) return;
-
-        log(`Evt: ${type}`);
 
         if (type === OsEventTypeList.SCROLL_TOP_EVENT) {
             game.handleScroll('UP');
@@ -269,4 +297,4 @@ async function init() {
     });
 }
 
-init().catch(err => log("Init Error: " + err));
+init().catch(err => console.error("Init Error", err));
