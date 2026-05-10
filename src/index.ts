@@ -121,7 +121,7 @@ const ROOMS: Record<string, Room> = {
       it: "Mura di pietra crollate testimoniano una civiltà dimenticata. Vedi un'uscita a sud.",
       en: "Crumbled stone walls bear witness to a forgotten civilization. You see an exit to the South."
     },
-    options: (state) => [
+    options: (_state) => [
       { label: { it: "Vai a Sud (Foresta)", en: "Go South (Forest)" }, onSelect: () => move('forest') },
       { label: { it: "Cerca tesori", en: "Search for treasure" }, onSelect: () => {
           setMessage("Trovi solo polvere e ricordi.", "You find only dust and memories.");
