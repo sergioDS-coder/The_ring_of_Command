@@ -34,7 +34,10 @@ const updateStatus = (status: string) => {
 
 // --- Game Engine ---
 type Language = 'IT' | 'EN';
-type Room = 'ENTRANCE' | 'HALL' | 'WELL' | 'ALTAR';
+type Room =
+    'FOREST_EDGE' | 'OLD_OAK' | 'VILLAGE_GATE' | 'TAVERN' | 'BLACKSMITH' |
+    'MISTY_PATH' | 'ORC_BRIDGE' | 'DARK_CAVE' | 'HIDDEN_LAKE' |
+    'MOUNTAIN_BASE' | 'DRAGON_TOWER' | 'THRONE_ROOM';
 
 interface GameState {
     phase: 'MENU' | 'LANG' | 'NAME' | 'PLAY' | 'DEAD' | 'WIN';
@@ -43,64 +46,161 @@ interface GameState {
     hp: number;
     inventory: string[];
     room: Room;
+    flags: Record<string, boolean>;
     cursor: number;
     options: string[];
     showHelp: boolean;
     tempMsg: string;
 }
 
-const ROOMS: Record<Language, Record<Room, { title: string; desc: string; options: string[]; art: string }>> = {
+const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string; desc: string; options: string[]; art: string }>> = {
     IT: {
-        ENTRANCE: {
-            art: "  /|__\n /   |\n|  G2 |",
-            title: "Il Cancello",
-            desc: "Un cancello imponente. L'aria profuma di pino.",
-            options: ["Entra", "Esamina", "Aiuto"]
-        },
-        HALL: {
-            art: " |   |\n | o |",
-            title: "Atrio",
-            desc: "Un salone immenso. Senti acqua a Ovest.",
-            options: ["Ovest (Pozzo)", "Nord", "Indietro", "Aiuto"]
-        },
-        WELL: {
-            art: "  [ ]\n ( o )\n  ~~~",
-            title: "Il Pozzo",
-            desc: "Un pozzo di pietra. Qualcosa brilla.",
-            options: ["Esamina", "Torna all'atrio", "Aiuto"]
-        },
-        ALTAR: {
-            art: "  _A_\n /| |\\\n  ---",
-            title: "L'Altare",
-            desc: "Luce dorata. Un manufatto al centro.",
-            options: ["Prendi", "Prega", "Aiuto"]
-        }
+        FOREST_EDGE: () => ({
+            art: "  /\\  /\\\n /  \\/  \\\n  ||  ||",
+            title: "Confine del Bosco",
+            desc: "L'alba rischiara una foresta antica. Senti il richiamo dell'ignoto.",
+            options: ["Vai a Nord (Quercia)", "Vai a Est (Villaggio)", "Aiuto"]
+        }),
+        OLD_OAK: (s) => ({
+            art: "   _MM_\n  (    )\n   /  \\",
+            title: "Antica Quercia",
+            desc: "Un albero millenario. Un vecchio cavaliere siede qui stanco.",
+            options: s.flags.met_knight ? ["Parla con Sir Alistair", "Vai a Sud", "Aiuto"] : ["Avvicinati al cavaliere", "Vai a Sud", "Aiuto"]
+        }),
+        VILLAGE_GATE: () => ({
+            art: "  |---| \n  | o |",
+            title: "Porta di Oakhaven",
+            desc: "Un ridente villaggio. Gli abitanti sembrano preoccupati per le voci di un drago.",
+            options: ["Entra nella Locanda", "Visita il Fabbro", "Vai a Ovest", "Aiuto"]
+        }),
+        TAVERN: (s) => ({
+            art: "  [ U ]\n   ---",
+            title: "Locanda 'Il Boccale'",
+            desc: "Odore di stufato e birra. Un bardo canta la ballata della Principessa rapita.",
+            options: s.flags.got_map ? ["Parla col Bardo", "Esci", "Aiuto"] : ["Chiedi della mappa", "Ascolta musica", "Esci", "Aiuto"]
+        }),
+        BLACKSMITH: (s) => ({
+            art: "   /|\\\n   ---",
+            title: "La Fucina",
+            desc: "Il calore è intenso. Il fabbro batte il ferro con forza ritmica.",
+            options: s.inventory.includes("Spada") ? ["Affila la spada", "Esci", "Aiuto"] : ["Compra una Spada", "Esci", "Aiuto"]
+        }),
+        MISTY_PATH: () => ({
+            art: "  ~ ~ ~\n   /  \\",
+            title: "Sentiero Nebbioso",
+            desc: "La visibilità è scarsa. Senti dei grugniti in lontananza.",
+            options: ["Prosegui a Nord", "Torna al Villaggio", "Aiuto"]
+        }),
+        ORC_BRIDGE: (s) => ({
+            art: "  _____\n /_____\\",
+            title: "Ponte di Pietra",
+            desc: s.flags.orc_dead ? "Il corpo dell'orco giace a terra. Il ponte è libero." : "Un enorme Orco blocca il passaggio brandendo una clava nodosa.",
+            options: s.flags.orc_dead ? ["Attraversa il ponte", "Torna indietro", "Aiuto"] : ["Combatti l'Orco", "Tenta di sgattaiolare", "Torna indietro", "Aiuto"]
+        }),
+        DARK_CAVE: (s) => ({
+            art: "  /---\\\n /     \\",
+            title: "Caverna Oscura",
+            desc: "Gocce d'acqua cadono dal soffitto. Gli occhi di piccoli goblin brillano nel buio.",
+            options: s.flags.cave_cleared ? ["Prosegui a Nord", "Esci", "Aiuto"] : ["Attacca i Goblin", "Cerca tesori", "Esci", "Aiuto"]
+        }),
+        HIDDEN_LAKE: () => ({
+            art: "  ~~~~~\n  ~~~~~",
+            title: "Lago Nascosto",
+            desc: "Un'oasi di pace. Un vecchio mercante offre oggetti rari.",
+            options: ["Compra Pozione HP", "Vai a Nord", "Aiuto"]
+        }),
+        MOUNTAIN_BASE: () => ({
+            art: "   /\\ \n  /  \\",
+            title: "Piedi della Montagna",
+            desc: "Il vento ulula. Sopra di te svetta la torre del drago.",
+            options: ["Scala la torre", "Torna al lago", "Aiuto"]
+        }),
+        DRAGON_TOWER: (s) => ({
+            art: "   | |\n   | |",
+            title: "Torre del Drago",
+            desc: s.flags.dragon_dead ? "Le fiamme si sono spente. Il drago è caduto." : "Un Drago Sputafuoco sorveglia l'ingresso. Il calore è insopportabile.",
+            options: s.flags.dragon_dead ? ["Entra nella stanza", "Torna giù", "Aiuto"] : ["Sfida il Drago", "Usa la pozione", "Torna giù", "Aiuto"]
+        }),
+        THRONE_ROOM: () => ({
+            art: "   -V- \n   | |",
+            title: "Sala del Trono",
+            desc: "La Principessa è incatenata al trono. Ti guarda con speranza.",
+            options: ["Libera la Principessa", "Esamina tesori", "Aiuto"]
+        })
     },
     EN: {
-        ENTRANCE: {
-            art: "  /|__\n /   |\n|  G2 |",
-            title: "The Gate",
-            desc: "A massive gate. Smells of pine.",
-            options: ["Enter", "Examine", "Help"]
-        },
-        HALL: {
-            art: " |   |\n | o |",
-            title: "The Hall",
-            desc: "A vast hall. Water drips to the West.",
-            options: ["West (Well)", "North", "Go back", "Help"]
-        },
-        WELL: {
-            art: "  [ ]\n ( o )\n  ~~~",
-            title: "The Well",
-            desc: "A stone well. Something glimmers.",
-            options: ["Examine", "Back to hall", "Help"]
-        },
-        ALTAR: {
-            art: "  _A_\n /| |\\\n  ---",
-            title: "The Altar",
-            desc: "Golden light. An artifact lies here.",
-            options: ["Take", "Pray", "Help"]
-        }
+        FOREST_EDGE: () => ({
+            art: "  /\\  /\\\n /  \\/  \\\n  ||  ||",
+            title: "Forest Edge",
+            desc: "Dawn breaks over an ancient forest. You feel the call of the unknown.",
+            options: ["Go North (Oak)", "Go East (Village)", "Help"]
+        }),
+        OLD_OAK: (s) => ({
+            art: "   _MM_\n  (    )\n   /  \\",
+            title: "Old Oak",
+            desc: "A thousand-year-old tree. A tired old knight sits here.",
+            options: s.flags.met_knight ? ["Speak with Sir Alistair", "Go South", "Help"] : ["Approach the knight", "Go South", "Help"]
+        }),
+        VILLAGE_GATE: () => ({
+            art: "  |---| \n  | o |",
+            title: "Oakhaven Gate",
+            desc: "A peaceful village. Residents seem worried about dragon rumors.",
+            options: ["Enter the Tavern", "Visit Blacksmith", "Go West", "Help"]
+        }),
+        TAVERN: (s) => ({
+            art: "  [ U ]\n   ---",
+            title: "The Tankard Tavern",
+            desc: "Smell of stew and ale. A bard sings of the kidnapped Princess.",
+            options: s.flags.got_map ? ["Talk to Bard", "Exit", "Help"] : ["Ask for map", "Listen to music", "Exit", "Help"]
+        }),
+        BLACKSMITH: (s) => ({
+            art: "   /|\\\n   ---",
+            title: "The Forge",
+            desc: "Intense heat. The smith strikes iron with rhythmic force.",
+            options: s.inventory.includes("Sword") ? ["Sharpen sword", "Exit", "Help"] : ["Buy a Sword", "Exit", "Help"]
+        }),
+        MISTY_PATH: () => ({
+            art: "  ~ ~ ~\n   /  \\",
+            title: "Misty Path",
+            desc: "Visibility is low. You hear grunts in the distance.",
+            options: ["Proceed North", "Back to Village", "Help"]
+        }),
+        ORC_BRIDGE: (s) => ({
+            art: "  _____\n /_____\\",
+            title: "Stone Bridge",
+            desc: s.flags.orc_dead ? "The orc's body lies on the ground. The bridge is clear." : "A massive Orc blocks the way wielding a gnarled club.",
+            options: s.flags.orc_dead ? ["Cross the bridge", "Go back", "Help"] : ["Fight the Orc", "Try to sneak", "Go back", "Help"]
+        }),
+        DARK_CAVE: (s) => ({
+            art: "  /---\\\n /     \\",
+            title: "Dark Cave",
+            desc: "Water drips from the ceiling. Small goblin eyes glint in the dark.",
+            options: s.flags.cave_cleared ? ["Proceed North", "Exit", "Help"] : ["Attack Goblins", "Search for loot", "Exit", "Help"]
+        }),
+        HIDDEN_LAKE: () => ({
+            art: "  ~~~~~\n  ~~~~~",
+            title: "Hidden Lake",
+            desc: "An oasis of peace. An old merchant offers rare items.",
+            options: ["Buy HP Potion", "Go North", "Help"]
+        }),
+        MOUNTAIN_BASE: () => ({
+            art: "   /\\ \n  /  \\",
+            title: "Mountain Base",
+            desc: "Wind howls. Above you looms the dragon's tower.",
+            options: ["Climb the tower", "Back to lake", "Help"]
+        }),
+        DRAGON_TOWER: (s) => ({
+            art: "   | |\n   | |",
+            title: "Dragon Tower",
+            desc: s.flags.dragon_dead ? "The flames have died out. The dragon has fallen." : "A fire-breathing Dragon guards the entrance. Heat is unbearable.",
+            options: s.flags.dragon_dead ? ["Enter the room", "Go down", "Help"] : ["Challenge Dragon", "Use potion", "Go down", "Help"]
+        }),
+        THRONE_ROOM: () => ({
+            art: "   -V- \n   | |",
+            title: "Throne Room",
+            desc: "The Princess is chained to the throne. She looks at you with hope.",
+            options: ["Free the Princess", "Examine treasures", "Help"]
+        })
     }
 };
 
@@ -110,7 +210,7 @@ const HELP_TEXT: Record<Language, string> = {
 };
 
 let gameState: GameState = {
-    phase: 'MENU', lang: 'IT', name: '', hp: 10, inventory: [], room: 'ENTRANCE', cursor: 0, options: [], showHelp: false, tempMsg: ''
+    phase: 'MENU', lang: 'IT', name: '', hp: 12, inventory: [], room: 'FOREST_EDGE', flags: {}, cursor: 0, options: [], showHelp: false, tempMsg: ''
 };
 
 async function saveGame() {
@@ -121,6 +221,7 @@ async function saveGame() {
         await _bridge.setLocalStorage('g2_room', gameState.room);
         await _bridge.setLocalStorage('g2_hp', String(gameState.hp));
         await _bridge.setLocalStorage('g2_inv', JSON.stringify(gameState.inventory));
+        await _bridge.setLocalStorage('g2_flags', JSON.stringify(gameState.flags));
         log("Game Saved");
     } catch (e) { log("Save Error: " + e); }
 }
@@ -158,7 +259,7 @@ function getTitle() {
     if (gameState.phase === 'NAME') return (gameState.lang === 'IT' ? "Nome: " : "Name: ") + gameState.name + ALPHABET[charIndex];
     if (gameState.phase === 'DEAD') return gameState.lang === 'IT' ? "GAME OVER" : "YOU DIED";
     if (gameState.phase === 'WIN') return gameState.lang === 'IT' ? "VITTORIA!" : "VICTORY!";
-    return ROOMS[gameState.lang][gameState.room].title;
+    return ROOMS[gameState.lang][gameState.room](gameState).title;
 }
 
 function getDescription() {
@@ -176,7 +277,7 @@ function getDescription() {
     if (gameState.phase === 'LANG') return (gameState.lang === 'IT' ? "Seleziona Lingua" : "Select Language") + "\n\n" + (gameState.cursor === 0 ? "> ITALIANO" : "  ITALIANO") + "\n" + (gameState.cursor === 1 ? "> ENGLISH" : "  ENGLISH");
     if (gameState.phase === 'NAME') return (gameState.lang === 'IT' ? "Scorri per cambiare lettera.\nSeleziona '_' per confermare." : "Scroll to change letter.\nSelect '_' to confirm.");
     if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') return (gameState.phase === 'DEAD' ? (gameState.lang === 'IT' ? "La tua avventura finisce qui." : "Adventure ends here.") : (gameState.lang === 'IT' ? "Mondo salvo!" : "World saved!")) + (gameState.lang === 'IT' ? "\n\n> Ricomincia" : "\n\n> Restart");
-    const room = ROOMS[gameState.lang][gameState.room];
+    const room = ROOMS[gameState.lang][gameState.room](gameState);
     let d = room.art + "\n\n";
     d += (gameState.tempMsg ? gameState.tempMsg + "\n\n" : "") + room.desc + "\n\nHP: " + gameState.hp;
     if (gameState.inventory.length > 0) d += "\nInv: " + gameState.inventory.join(", ");
@@ -198,7 +299,7 @@ function onScroll(direction: 'UP' | 'DOWN') {
     else if (gameState.phase === 'LANG') gameState.cursor = (gameState.cursor + delta + 2) % 2;
     else if (gameState.phase === 'NAME') charIndex = (charIndex + delta + ALPHABET.length) % ALPHABET.length;
     else if (gameState.phase === 'PLAY') {
-        const max = ROOMS[gameState.lang][gameState.room].options.length;
+        const max = ROOMS[gameState.lang][gameState.room](gameState).options.length;
         gameState.cursor = (gameState.cursor + delta + max) % max;
     }
 }
@@ -210,11 +311,12 @@ function onSelect(): boolean {
             if (_bridge) {
                 _bridge.setLocalStorage('g2_lang', '');
                 _bridge.setLocalStorage('g2_name', '');
-                _bridge.setLocalStorage('g2_room', 'ENTRANCE');
-                _bridge.setLocalStorage('g2_hp', '10');
+                _bridge.setLocalStorage('g2_room', 'FOREST_EDGE');
+                _bridge.setLocalStorage('g2_hp', '12');
                 _bridge.setLocalStorage('g2_inv', '[]');
+                _bridge.setLocalStorage('g2_flags', '{}');
             }
-            gameState.phase = 'LANG'; gameState.hp = 10; gameState.inventory = []; gameState.room = 'ENTRANCE'; gameState.cursor = 0; charIndex = 0; gameState.name = '';
+            gameState.phase = 'LANG'; gameState.hp = 12; gameState.inventory = []; gameState.room = 'FOREST_EDGE'; gameState.flags = {}; gameState.cursor = 0; charIndex = 0; gameState.name = '';
             needsRebuild = true;
         }
         gameState.showHelp = false;
@@ -227,7 +329,7 @@ function onSelect(): boolean {
         else if (gameState.cursor === 2) { gameState.phase = 'NAME'; needsRebuild = true; }
         gameState.cursor = 0;
     } else if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') {
-        gameState.phase = 'MENU'; gameState.hp = 10; gameState.inventory = []; gameState.room = 'ENTRANCE'; gameState.cursor = 0; charIndex = 0;
+        gameState.phase = 'MENU'; gameState.hp = 12; gameState.inventory = []; gameState.room = 'FOREST_EDGE'; gameState.flags = {}; gameState.cursor = 0; charIndex = 0;
         needsRebuild = true;
         saveGame();
     } else if (gameState.phase === 'LANG') {
@@ -248,33 +350,113 @@ function onSelect(): boolean {
             gameState.name += char;
         }
     } else if (gameState.phase === 'PLAY') {
-        const roomData = ROOMS[gameState.lang][gameState.room];
+        const roomData = ROOMS[gameState.lang][gameState.room](gameState);
         const opt = roomData.options[gameState.cursor];
         if (opt === "Help" || opt === "Aiuto") {
             gameState.showHelp = true;
         } else {
             gameState.tempMsg = '';
-            if (gameState.room === 'ENTRANCE') {
-                if (gameState.cursor === 0) gameState.room = 'HALL';
-                else gameState.tempMsg = gameState.lang === 'IT' ? "Nulla di interessante." : "Nothing interesting.";
-            } else if (gameState.room === 'HALL') {
-                if (gameState.cursor === 0) { gameState.room = 'WELL'; gameState.hp -= 1; }
-                else if (gameState.cursor === 1) gameState.room = 'ALTAR';
-                else if (gameState.cursor === 2) gameState.room = 'ENTRANCE';
-            } else if (gameState.room === 'WELL') {
+            const IT = gameState.lang === 'IT';
+
+            if (gameState.room === 'FOREST_EDGE') {
+                if (gameState.cursor === 0) gameState.room = 'OLD_OAK';
+                else if (gameState.cursor === 1) gameState.room = 'VILLAGE_GATE';
+            } else if (gameState.room === 'OLD_OAK') {
                 if (gameState.cursor === 0) {
-                    const i = gameState.lang === 'IT' ? "Torcia" : "Torch";
-                    if (!gameState.inventory.includes(i)) {
-                        gameState.inventory.push(i);
-                        gameState.tempMsg = gameState.lang === 'IT' ? "Hai preso la torcia!" : "You got the torch!";
+                    if (!gameState.flags.met_knight) {
+                        gameState.tempMsg = IT ? "Sir Alistair ti affida una missione." : "Sir Alistair entrusts you with a quest.";
+                        gameState.flags.met_knight = true;
+                    } else {
+                        gameState.tempMsg = IT ? "'Trova la principessa, giovane!'" : "'Find the princess, youth!'";
                     }
-                } else if (gameState.cursor === 1) gameState.room = 'HALL';
-            } else if (gameState.room === 'ALTAR') {
+                } else if (gameState.cursor === 1) gameState.room = 'FOREST_EDGE';
+            } else if (gameState.room === 'VILLAGE_GATE') {
+                if (gameState.cursor === 0) gameState.room = 'TAVERN';
+                else if (gameState.cursor === 1) gameState.room = 'BLACKSMITH';
+                else if (gameState.cursor === 2) gameState.room = 'FOREST_EDGE';
+            } else if (gameState.room === 'TAVERN') {
+                if (gameState.cursor === 0) {
+                    if (!gameState.flags.got_map) {
+                        gameState.tempMsg = IT ? "Hai ottenuto la mappa del Sentiero!" : "You got the Path map!";
+                        gameState.flags.got_map = true;
+                    } else gameState.tempMsg = IT ? "Il bardo sorride." : "The bard smiles.";
+                } else if (gameState.cursor === 2 || (gameState.flags.got_map && gameState.cursor === 1)) {
+                    gameState.room = 'VILLAGE_GATE';
+                }
+            } else if (gameState.room === 'BLACKSMITH') {
+                if (gameState.cursor === 0) {
+                    const sword = IT ? "Spada" : "Sword";
+                    if (!gameState.inventory.includes(sword)) {
+                        gameState.inventory.push(sword);
+                        gameState.tempMsg = IT ? "Ora sei armato!" : "Now you are armed!";
+                    } else gameState.tempMsg = IT ? "La spada brilla." : "The sword glints.";
+                } else if (gameState.cursor === 1) gameState.room = 'VILLAGE_GATE';
+            } else if (gameState.room === 'MISTY_PATH') {
+                if (gameState.cursor === 0) gameState.room = 'ORC_BRIDGE';
+                else if (gameState.cursor === 1) gameState.room = 'VILLAGE_GATE';
+            } else if (gameState.room === 'ORC_BRIDGE') {
+                if (gameState.flags.orc_dead) {
+                    if (gameState.cursor === 0) gameState.room = 'DARK_CAVE';
+                    else if (gameState.cursor === 1) gameState.room = 'MISTY_PATH';
+                } else {
+                    if (gameState.cursor === 0) {
+                        if (gameState.inventory.includes("Spada") || gameState.inventory.includes("Sword")) {
+                            gameState.tempMsg = IT ? "Uccidi l'Orco!" : "You kill the Orc!";
+                            gameState.flags.orc_dead = true;
+                        } else {
+                            gameState.tempMsg = IT ? "L'Orco ti colpisce! Scappa!" : "The Orc hits you! Run!";
+                            gameState.hp -= 3;
+                        }
+                    } else if (gameState.cursor === 1) {
+                        if (Math.random() > 0.5) {
+                            gameState.tempMsg = IT ? "Sgattaioli oltre." : "You sneak past.";
+                            gameState.room = 'DARK_CAVE';
+                        } else {
+                            gameState.tempMsg = IT ? "L'Orco ti vede! -1 HP" : "The Orc sees you! -1 HP";
+                            gameState.hp -= 1;
+                        }
+                    } else if (gameState.cursor === 2) gameState.room = 'MISTY_PATH';
+                }
+            } else if (gameState.room === 'DARK_CAVE') {
+                if (gameState.flags.cave_cleared) {
+                    if (gameState.cursor === 0) gameState.room = 'HIDDEN_LAKE';
+                    else if (gameState.cursor === 1) gameState.room = 'ORC_BRIDGE';
+                } else {
+                    if (gameState.cursor === 0) {
+                        gameState.tempMsg = IT ? "Goblin sconfitti!" : "Goblins defeated!";
+                        gameState.flags.cave_cleared = true;
+                    } else if (gameState.cursor === 2) gameState.room = 'ORC_BRIDGE';
+                }
+            } else if (gameState.room === 'HIDDEN_LAKE') {
+                if (gameState.cursor === 0) {
+                    gameState.hp = 12;
+                    gameState.tempMsg = IT ? "Salute ripristinata!" : "Health restored!";
+                } else if (gameState.cursor === 1) gameState.room = 'MOUNTAIN_BASE';
+            } else if (gameState.room === 'MOUNTAIN_BASE') {
+                if (gameState.cursor === 0) gameState.room = 'DRAGON_TOWER';
+                else if (gameState.cursor === 1) gameState.room = 'HIDDEN_LAKE';
+            } else if (gameState.room === 'DRAGON_TOWER') {
+                if (gameState.flags.dragon_dead) {
+                    if (gameState.cursor === 0) gameState.room = 'THRONE_ROOM';
+                    else if (gameState.cursor === 1) gameState.room = 'MOUNTAIN_BASE';
+                } else {
+                    if (gameState.cursor === 0) {
+                        if (gameState.inventory.includes("Spada") || gameState.inventory.includes("Sword")) {
+                            gameState.tempMsg = IT ? "Battaglia epica! Il Drago cade." : "Epic battle! The Dragon falls.";
+                            gameState.flags.dragon_dead = true;
+                        } else {
+                            gameState.tempMsg = IT ? "Il fuoco ti brucia! -5 HP" : "Fire burns you! -5 HP";
+                            gameState.hp -= 5;
+                        }
+                    } else if (gameState.cursor === 2) gameState.room = 'MOUNTAIN_BASE';
+                }
+            } else if (gameState.room === 'THRONE_ROOM') {
                 if (gameState.cursor === 0) {
                     gameState.phase = 'WIN';
                     needsRebuild = true;
-                } else if (gameState.cursor === 1) gameState.room = 'HALL';
+                }
             }
+
             if (gameState.hp <= 0) {
                 gameState.phase = 'DEAD';
                 needsRebuild = true;
@@ -300,12 +482,14 @@ async function init() {
         const room = await _bridge.getLocalStorage('g2_room');
         const hp = await _bridge.getLocalStorage('g2_hp');
         const inv = await _bridge.getLocalStorage('g2_inv');
+        const flags = await _bridge.getLocalStorage('g2_flags');
 
         if (lang) gameState.lang = lang as Language;
         if (name) gameState.name = name;
         if (room) gameState.room = room as Room;
         if (hp) gameState.hp = Number(hp);
         if (inv) gameState.inventory = JSON.parse(inv);
+        if (flags) gameState.flags = JSON.parse(flags);
 
         log(`Session Loaded: ${gameState.name} (${gameState.lang}) at ${gameState.room}`);
         gameState.phase = 'MENU';
