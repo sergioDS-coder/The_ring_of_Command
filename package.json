@@ -12,8 +12,8 @@
     "@evenrealities/even_hub_sdk": "^0.0.10"
   },
   "devDependencies": {
-    "esbuild": "^0.28.0",
     "typescript": "^5.0.0",
-    "vite": "^8.0.12"
+    "vite": "^5.0.0",
+    "esbuild": "^0.21.0"
   }
 }
