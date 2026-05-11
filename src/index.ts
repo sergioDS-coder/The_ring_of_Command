@@ -1,6 +1,7 @@
 import {
     waitForEvenAppBridge,
     CreateStartUpPageContainer,
+    RebuildPageContainer,
     TextContainerProperty,
     TextContainerUpgrade,
     OsEventTypeList,
@@ -99,6 +100,29 @@ let gameState: GameState = {
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 let charIndex = 0;
 
+// --- Requested 'even' wrapper ---
+const even = {
+    showCard: async (title: string, desc: string, forceRebuild = false) => {
+        if (!_bridge) return;
+        log(`Showing Card: ${title} (rebuild=${forceRebuild})`);
+        try {
+            if (forceRebuild) {
+                const layout = new RebuildPageContainer({
+                    containerTotalNum: 2,
+                    textObject: [
+                        new TextContainerProperty({ containerID: 0, xPosition: 40, yPosition: 16, width: 496, height: 56, content: title }),
+                        new TextContainerProperty({ containerID: 1, xPosition: 40, yPosition: 80, width: 496, height: 192, content: desc, isEventCapture: 1 })
+                    ]
+                });
+                await _bridge.rebuildPageContainer(layout);
+            } else {
+                await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 0, content: title }));
+                await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 1, content: desc }));
+            }
+        } catch (e) { log("showCard Error: " + e); }
+    }
+};
+
 function getTitle() {
     if (gameState.showHelp) return "Help / Aiuto";
     if (gameState.phase === 'LANG') return "G2 Chronicles";
@@ -121,49 +145,93 @@ function getDescription() {
     return d;
 }
 
+// --- Controller Logic ---
+function onScroll(direction: 'UP' | 'DOWN') {
+    if (gameState.showHelp) return;
+    const delta = direction === 'UP' ? -1 : 1;
+
+    if (gameState.phase === 'LANG') gameState.cursor = (gameState.cursor + delta + 2) % 2;
+    else if (gameState.phase === 'NAME') charIndex = (charIndex + delta + ALPHABET.length) % ALPHABET.length;
+    else if (gameState.phase === 'PLAY') {
+        const max = ROOMS[gameState.lang][gameState.room].options.length;
+        gameState.cursor = (gameState.cursor + delta + max) % max;
+    }
+}
+
+function onSelect(): boolean {
+    let needsRebuild = false;
+    if (gameState.showHelp) {
+        gameState.showHelp = false;
+    } else if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') {
+        gameState.phase = 'LANG'; gameState.hp = 10; gameState.inventory = []; gameState.room = 'ENTRANCE'; gameState.cursor = 0; charIndex = 0; gameState.name = '';
+        needsRebuild = true;
+    } else if (gameState.phase === 'LANG') {
+        gameState.lang = gameState.cursor === 0 ? 'IT' : 'EN';
+        gameState.phase = 'NAME';
+        needsRebuild = true;
+    } else if (gameState.phase === 'NAME') {
+        const char = ALPHABET[charIndex];
+        if (char === '_') {
+            if (gameState.name.length > 0) {
+                gameState.phase = 'PLAY';
+                gameState.cursor = 0;
+                needsRebuild = true;
+            }
+        } else if (gameState.name.length < 8) {
+            gameState.name += char;
+        }
+    } else if (gameState.phase === 'PLAY') {
+        const roomData = ROOMS[gameState.lang][gameState.room];
+        const opt = roomData.options[gameState.cursor];
+        if (opt === "Help" || opt === "Aiuto") {
+            gameState.showHelp = true;
+        } else {
+            gameState.tempMsg = '';
+            if (gameState.room === 'ENTRANCE') {
+                if (gameState.cursor === 0) gameState.room = 'HALL';
+                else gameState.tempMsg = gameState.lang === 'IT' ? "Nulla di interessante." : "Nothing interesting.";
+            } else if (gameState.room === 'HALL') {
+                if (gameState.cursor === 0) { gameState.room = 'WELL'; gameState.hp -= 1; }
+                else if (gameState.cursor === 1) gameState.room = 'ALTAR';
+                else if (gameState.cursor === 2) gameState.room = 'ENTRANCE';
+            } else if (gameState.room === 'WELL') {
+                if (gameState.cursor === 0) {
+                    const i = gameState.lang === 'IT' ? "Torcia" : "Torch";
+                    if (!gameState.inventory.includes(i)) {
+                        gameState.inventory.push(i);
+                        gameState.tempMsg = gameState.lang === 'IT' ? "Hai preso la torcia!" : "You got the torch!";
+                    }
+                } else if (gameState.cursor === 1) gameState.room = 'HALL';
+            } else if (gameState.room === 'ALTAR') {
+                if (gameState.cursor === 0) {
+                    gameState.phase = 'WIN';
+                    needsRebuild = true;
+                } else if (gameState.cursor === 1) gameState.room = 'HALL';
+            }
+            if (gameState.hp <= 0) {
+                gameState.phase = 'DEAD';
+                needsRebuild = true;
+            }
+            gameState.cursor = 0;
+        }
+    }
+    return needsRebuild;
+}
+
 // --- Even SDK Logic ---
 let _bridge: EvenAppBridge | null = null;
-
-async function syncUI() {
-    if (!_bridge) return;
-    const title = getTitle();
-    const desc = getDescription();
-    log(`Syncing UI: ${title}`);
-    try {
-        await _bridge.textContainerUpgrade(new TextContainerUpgrade({
-            containerID: 0,
-            content: title
-        }));
-        await _bridge.textContainerUpgrade(new TextContainerUpgrade({
-            containerID: 1,
-            content: desc
-        }));
-    } catch (e) { log("Sync Error: " + e); }
-}
 
 async function init() {
     updateStatus("Connecting...");
     _bridge = await waitForEvenAppBridge();
     updateStatus("Connected!");
 
-    // Use the layout that worked before the "invalid" errors
     const tProp = new TextContainerProperty({
-        containerID: 0,
-        xPosition: 40,
-        yPosition: 16,
-        width: 496,
-        height: 56,
-        content: getTitle()
+        containerID: 0, xPosition: 40, yPosition: 16, width: 496, height: 56, content: getTitle()
     });
 
     const dProp = new TextContainerProperty({
-        containerID: 1,
-        xPosition: 40,
-        yPosition: 80,
-        width: 496,
-        height: 192,
-        content: getDescription(),
-        isEventCapture: 1
+        containerID: 1, xPosition: 40, yPosition: 80, width: 496, height: 192, content: getDescription(), isEventCapture: 1
     });
 
     try {
@@ -174,92 +242,48 @@ async function init() {
 
         const res = await _bridge.createStartUpPageContainer(layout);
         log("Layout Response: " + res);
-
-        if (res === 0) {
-            updateStatus("Display Active");
-        } else {
-            updateStatus(`Layout Error: ${res}`);
-        }
+        updateStatus(res === 0 ? "Display Active" : `Layout Error: ${res}`);
     } catch (e) {
         log("Init Exception: " + e);
         updateStatus("Init Exception");
     }
 
     _bridge.onEvenHubEvent((event: EvenHubEvent) => {
-        // Explicitly check all event sources
-        const sys = event.sysEvent?.eventType;
-        const text = event.textEvent?.eventType;
-        const list = event.listEvent?.eventType;
-
-        // Log raw for deep debugging
         log(`RAW: ${JSON.stringify(event)}`);
 
-        let type: OsEventTypeList | undefined = undefined;
-        if (sys !== undefined) type = sys;
-        else if (text !== undefined) type = text;
-        else if (list !== undefined) type = list;
-
-        log(`Event: ${type} (sys=${sys}, text=${text})`);
-
-        if (type === undefined) {
-            // Check if it's a click that came through without OsEventTypeList mapping
-            if (event.textEvent && (event.textEvent as any).type === 0) type = 0;
-            else if (event.sysEvent && (event.sysEvent as any).type === 0) type = 0;
-
-            if (type === undefined) return;
+        let type: number | undefined = undefined;
+        if (event.textEvent !== undefined && event.textEvent.eventType !== undefined) {
+            type = Number(event.textEvent.eventType);
+        } else if (event.sysEvent !== undefined && event.sysEvent.eventType !== undefined) {
+            type = Number(event.sysEvent.eventType);
         }
 
-        if (type === OsEventTypeList.SCROLL_TOP_EVENT) {
-            if (!gameState.showHelp) {
-                if (gameState.phase === 'LANG') gameState.cursor = (gameState.cursor - 1 + 2) % 2;
-                else if (gameState.phase === 'NAME') charIndex = (charIndex - 1 + ALPHABET.length) % ALPHABET.length;
-                else if (gameState.phase === 'PLAY') {
-                    const max = ROOMS[gameState.lang][gameState.room].options.length;
-                    gameState.cursor = (gameState.cursor - 1 + max) % max;
-                }
-            }
-        } else if (type === OsEventTypeList.SCROLL_BOTTOM_EVENT) {
-            if (!gameState.showHelp) {
-                if (gameState.phase === 'LANG') gameState.cursor = (gameState.cursor + 1) % 2;
-                else if (gameState.phase === 'NAME') charIndex = (charIndex + 1) % ALPHABET.length;
-                else if (gameState.phase === 'PLAY') {
-                    const max = ROOMS[gameState.lang][gameState.room].options.length;
-                    gameState.cursor = (gameState.cursor + 1) % max;
-                }
-            }
-        } else if (type === OsEventTypeList.CLICK_EVENT) {
-            if (gameState.showHelp) {
-                gameState.showHelp = false;
-            } else if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') {
-                gameState.phase = 'LANG'; gameState.hp = 10; gameState.inventory = []; gameState.room = 'ENTRANCE'; gameState.cursor = 0; charIndex = 0; gameState.name = '';
-            } else if (gameState.phase === 'LANG') {
-                gameState.lang = gameState.cursor === 0 ? 'IT' : 'EN'; gameState.phase = 'NAME';
-            } else if (gameState.phase === 'NAME') {
-                const char = ALPHABET[charIndex];
-                if (char === '_') { if (gameState.name.length > 0) { gameState.phase = 'PLAY'; gameState.cursor = 0; } }
-                else if (gameState.name.length < 8) { gameState.name += char; }
-            } else if (gameState.phase === 'PLAY') {
-                const roomData = ROOMS[gameState.lang][gameState.room];
-                const opt = roomData.options[gameState.cursor];
-                if (opt === "Help" || opt === "Aiuto") { gameState.showHelp = true; }
-                else {
-                    if (gameState.room === 'ENTRANCE') { if (gameState.cursor === 0) gameState.room = 'HALL'; else gameState.tempMsg = gameState.lang === 'IT' ? "Nulla." : "Nothing."; }
-                    else if (gameState.room === 'HALL') { if (gameState.cursor === 0) { gameState.room = 'WELL'; gameState.hp -= 1; } else if (gameState.cursor === 1) gameState.room = 'ALTAR'; else if (gameState.cursor === 2) gameState.room = 'ENTRANCE'; }
-                    else if (gameState.room === 'WELL') { if (gameState.cursor === 0) { const i = gameState.lang === 'IT' ? "Torcia" : "Torch"; if (!gameState.inventory.includes(i)) gameState.inventory.push(i); } else if (gameState.cursor === 1) gameState.room = 'HALL'; }
-                    else if (gameState.room === 'ALTAR') { if (gameState.cursor === 0) gameState.phase = 'WIN'; else if (gameState.cursor === 1) gameState.room = 'HALL'; }
-                    if (gameState.hp <= 0) gameState.phase = 'DEAD';
-                    gameState.cursor = 0;
-                }
-            }
-        } else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
-            log("Exit...");
+        if (type === undefined) return;
+
+        let needsRebuild = false;
+
+        // SCROLL_TOP (1)
+        if (type === 1 || type === OsEventTypeList.SCROLL_TOP_EVENT) {
+            onScroll('UP');
+        }
+        // SCROLL_BOTTOM (2)
+        else if (type === 2 || type === OsEventTypeList.SCROLL_BOTTOM_EVENT) {
+            onScroll('DOWN');
+        }
+        // CLICK (0)
+        else if (type === 0 || type === OsEventTypeList.CLICK_EVENT) {
+            needsRebuild = onSelect();
+        }
+        // DOUBLE CLICK (3)
+        else if (type === 3 || type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
+            log("Exit via Double Click");
             if (_bridge) _bridge.shutDownPageContainer(1);
         }
-        syncUI();
+
+        even.showCard(getTitle(), getDescription(), needsRebuild);
     });
 
-    // Final forced refresh
-    setTimeout(() => syncUI(), 1000);
+    setTimeout(() => even.showCard(getTitle(), getDescription()), 1000);
 }
 
 init().catch(e => log("Fatal: " + e));
