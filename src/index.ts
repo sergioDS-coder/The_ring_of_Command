@@ -37,7 +37,7 @@ type Language = 'IT' | 'EN';
 type Room = 'ENTRANCE' | 'HALL' | 'WELL' | 'ALTAR';
 
 interface GameState {
-    phase: 'LANG' | 'NAME' | 'PLAY' | 'DEAD' | 'WIN';
+    phase: 'MENU' | 'LANG' | 'NAME' | 'PLAY' | 'DEAD' | 'WIN';
     lang: Language;
     name: string;
     hp: number;
@@ -53,53 +53,53 @@ const ROOMS: Record<Language, Record<Room, { title: string; desc: string; option
     IT: {
         ENTRANCE: {
             art: "  /|__\n /   |\n|  G2 |",
-            title: "Il Cancello di Ferro",
-            desc: "Sei davanti a un imponente cancello. L'aria è fredda e profuma di pino.",
-            options: ["Entra nel Castello", "Esamina i dintorni", "Aiuto"]
+            title: "Il Cancello",
+            desc: "Un cancello imponente. L'aria profuma di pino.",
+            options: ["Entra", "Esamina", "Aiuto"]
         },
         HALL: {
             art: " |   |\n | o |",
-            title: "Atrio Oscuro",
-            desc: "Un salone immenso. Senti gocciolare dell'acqua a Ovest.",
-            options: ["Vai a Ovest (Pozzo)", "Prosegui a Nord", "Torna indietro", "Aiuto"]
+            title: "Atrio",
+            desc: "Un salone immenso. Senti acqua a Ovest.",
+            options: ["Ovest (Pozzo)", "Nord", "Indietro", "Aiuto"]
         },
         WELL: {
             art: "  [ ]\n ( o )\n  ~~~",
-            title: "Il Pozzo Antico",
-            desc: "Un pozzo di pietra. Qualcosa brilla sul fondo.",
-            options: ["Esamina il pozzo", "Torna all'atrio", "Aiuto"]
+            title: "Il Pozzo",
+            desc: "Un pozzo di pietra. Qualcosa brilla.",
+            options: ["Esamina", "Torna all'atrio", "Aiuto"]
         },
         ALTAR: {
             art: "  _A_\n /| |\\\n  ---",
-            title: "L'Altare G2",
-            desc: "Una luce dorata illumina un altare. Al centro, un manufatto.",
-            options: ["Prendi il Manufatto", "Recita una preghiera", "Aiuto"]
+            title: "L'Altare",
+            desc: "Luce dorata. Un manufatto al centro.",
+            options: ["Prendi", "Prega", "Aiuto"]
         }
     },
     EN: {
         ENTRANCE: {
             art: "  /|__\n /   |\n|  G2 |",
-            title: "The Iron Gate",
-            desc: "You stand before a massive gate. The air smells of pine.",
-            options: ["Enter the Castle", "Examine surroundings", "Help"]
+            title: "The Gate",
+            desc: "A massive gate. Smells of pine.",
+            options: ["Enter", "Examine", "Help"]
         },
         HALL: {
             art: " |   |\n | o |",
-            title: "Dark Hall",
-            desc: "A vast hall. You hear water dripping to the West.",
-            options: ["Go West (Well)", "Proceed North", "Go back", "Help"]
+            title: "The Hall",
+            desc: "A vast hall. Water drips to the West.",
+            options: ["West (Well)", "North", "Go back", "Help"]
         },
         WELL: {
             art: "  [ ]\n ( o )\n  ~~~",
-            title: "The Ancient Well",
-            desc: "A stone well. Something glimmers at the bottom.",
-            options: ["Examine well", "Back to hall", "Help"]
+            title: "The Well",
+            desc: "A stone well. Something glimmers.",
+            options: ["Examine", "Back to hall", "Help"]
         },
         ALTAR: {
             art: "  _A_\n /| |\\\n  ---",
-            title: "The G2 Altar",
-            desc: "Golden light illuminates an altar. At its center, an artifact.",
-            options: ["Take the Artifact", "Say a prayer", "Help"]
+            title: "The Altar",
+            desc: "Golden light. An artifact lies here.",
+            options: ["Take", "Pray", "Help"]
         }
     }
 };
@@ -110,8 +110,20 @@ const HELP_TEXT: Record<Language, string> = {
 };
 
 let gameState: GameState = {
-    phase: 'LANG', lang: 'IT', name: '', hp: 10, inventory: [], room: 'ENTRANCE', cursor: 0, options: [], showHelp: false, tempMsg: ''
+    phase: 'MENU', lang: 'IT', name: '', hp: 10, inventory: [], room: 'ENTRANCE', cursor: 0, options: [], showHelp: false, tempMsg: ''
 };
+
+async function saveGame() {
+    if (!_bridge) return;
+    try {
+        await _bridge.setLocalStorage('g2_lang', gameState.lang);
+        await _bridge.setLocalStorage('g2_name', gameState.name);
+        await _bridge.setLocalStorage('g2_room', gameState.room);
+        await _bridge.setLocalStorage('g2_hp', String(gameState.hp));
+        await _bridge.setLocalStorage('g2_inv', JSON.stringify(gameState.inventory));
+        log("Game Saved");
+    } catch (e) { log("Save Error: " + e); }
+}
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 let charIndex = 0;
@@ -141,7 +153,8 @@ const even = {
 
 function getTitle() {
     if (gameState.showHelp) return "Help / Aiuto";
-    if (gameState.phase === 'LANG') return "G2 Chronicles";
+    if (gameState.phase === 'MENU') return "G2 Chronicles";
+    if (gameState.phase === 'LANG') return (gameState.lang === 'IT' ? "Lingua" : "Language");
     if (gameState.phase === 'NAME') return (gameState.lang === 'IT' ? "Nome: " : "Name: ") + gameState.name + ALPHABET[charIndex];
     if (gameState.phase === 'DEAD') return gameState.lang === 'IT' ? "GAME OVER" : "YOU DIED";
     if (gameState.phase === 'WIN') return gameState.lang === 'IT' ? "VITTORIA!" : "VICTORY!";
@@ -154,7 +167,13 @@ function getDescription() {
         help += gameState.lang === 'IT' ? "\n\n> Reset Dati" : "\n\n> Reset Data";
         return help;
     }
-    if (gameState.phase === 'LANG') return "Seleziona Lingua / Select Language\n\n" + (gameState.cursor === 0 ? "> ITALIANO" : "  ITALIANO") + "\n" + (gameState.cursor === 1 ? "> ENGLISH" : "  ENGLISH");
+    if (gameState.phase === 'MENU') {
+        const options = gameState.lang === 'IT' ? ["Inizia/Continua", "Cambia Lingua", "Cambia Nome"] : ["Start/Continue", "Change Language", "Change Name"];
+        let d = (gameState.lang === 'IT' ? "Bentornato, " : "Welcome back, ") + (gameState.name || "Eroe") + "\n\n";
+        options.forEach((opt, i) => { d += (i === gameState.cursor ? "> " : "  ") + opt + "\n"; });
+        return d;
+    }
+    if (gameState.phase === 'LANG') return (gameState.lang === 'IT' ? "Seleziona Lingua" : "Select Language") + "\n\n" + (gameState.cursor === 0 ? "> ITALIANO" : "  ITALIANO") + "\n" + (gameState.cursor === 1 ? "> ENGLISH" : "  ENGLISH");
     if (gameState.phase === 'NAME') return (gameState.lang === 'IT' ? "Scorri per cambiare lettera.\nSeleziona '_' per confermare." : "Scroll to change letter.\nSelect '_' to confirm.");
     if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') return (gameState.phase === 'DEAD' ? (gameState.lang === 'IT' ? "La tua avventura finisce qui." : "Adventure ends here.") : (gameState.lang === 'IT' ? "Mondo salvo!" : "World saved!")) + (gameState.lang === 'IT' ? "\n\n> Ricomincia" : "\n\n> Restart");
     const room = ROOMS[gameState.lang][gameState.room];
@@ -168,10 +187,15 @@ function getDescription() {
 
 // --- Controller Logic ---
 function onScroll(direction: 'UP' | 'DOWN') {
-    if (gameState.showHelp) return;
+    if (gameState.showHelp) {
+        const delta = direction === 'UP' ? -1 : 1;
+        gameState.cursor = (gameState.cursor + delta + 2) % 2;
+        return;
+    }
     const delta = direction === 'UP' ? -1 : 1;
 
-    if (gameState.phase === 'LANG') gameState.cursor = (gameState.cursor + delta + 2) % 2;
+    if (gameState.phase === 'MENU') gameState.cursor = (gameState.cursor + delta + 3) % 3;
+    else if (gameState.phase === 'LANG') gameState.cursor = (gameState.cursor + delta + 2) % 2;
     else if (gameState.phase === 'NAME') charIndex = (charIndex + delta + ALPHABET.length) % ALPHABET.length;
     else if (gameState.phase === 'PLAY') {
         const max = ROOMS[gameState.lang][gameState.room].options.length;
@@ -184,32 +208,41 @@ function onSelect(): boolean {
     if (gameState.showHelp) {
         if (gameState.cursor === 1) { // Reset Data
             if (_bridge) {
-                _bridge.setLocalStorage('saved_lang', '');
-                _bridge.setLocalStorage('saved_name', '');
+                _bridge.setLocalStorage('g2_lang', '');
+                _bridge.setLocalStorage('g2_name', '');
+                _bridge.setLocalStorage('g2_room', 'ENTRANCE');
+                _bridge.setLocalStorage('g2_hp', '10');
+                _bridge.setLocalStorage('g2_inv', '[]');
             }
             gameState.phase = 'LANG'; gameState.hp = 10; gameState.inventory = []; gameState.room = 'ENTRANCE'; gameState.cursor = 0; charIndex = 0; gameState.name = '';
             needsRebuild = true;
         }
         gameState.showHelp = false;
         gameState.cursor = 0;
+    } else if (gameState.phase === 'MENU') {
+        if (gameState.cursor === 0) {
+            if (!gameState.name) { gameState.phase = 'LANG'; needsRebuild = true; }
+            else { gameState.phase = 'PLAY'; needsRebuild = true; }
+        } else if (gameState.cursor === 1) { gameState.phase = 'LANG'; needsRebuild = true; }
+        else if (gameState.cursor === 2) { gameState.phase = 'NAME'; needsRebuild = true; }
+        gameState.cursor = 0;
     } else if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') {
-        gameState.phase = 'LANG'; gameState.hp = 10; gameState.inventory = []; gameState.room = 'ENTRANCE'; gameState.cursor = 0; charIndex = 0; gameState.name = '';
+        gameState.phase = 'MENU'; gameState.hp = 10; gameState.inventory = []; gameState.room = 'ENTRANCE'; gameState.cursor = 0; charIndex = 0;
         needsRebuild = true;
+        saveGame();
     } else if (gameState.phase === 'LANG') {
         gameState.lang = gameState.cursor === 0 ? 'IT' : 'EN';
         gameState.phase = 'NAME';
         needsRebuild = true;
+        saveGame();
     } else if (gameState.phase === 'NAME') {
         const char = ALPHABET[charIndex];
         if (char === '_') {
             if (gameState.name.length > 0) {
-                gameState.phase = 'PLAY';
+                gameState.phase = 'MENU';
                 gameState.cursor = 0;
                 needsRebuild = true;
-                if (_bridge) {
-                    _bridge.setLocalStorage('saved_lang', gameState.lang);
-                    _bridge.setLocalStorage('saved_name', gameState.name);
-                }
+                saveGame();
             }
         } else if (gameState.name.length < 8) {
             gameState.name += char;
@@ -247,6 +280,7 @@ function onSelect(): boolean {
                 needsRebuild = true;
             }
             gameState.cursor = 0;
+            saveGame();
         }
     }
     return needsRebuild;
@@ -261,15 +295,21 @@ async function init() {
     updateStatus("Connected!");
 
     try {
-        const savedLang = await _bridge.getLocalStorage('saved_lang');
-        const savedName = await _bridge.getLocalStorage('saved_name');
-        if (savedLang && savedName) {
-            gameState.lang = savedLang as Language;
-            gameState.name = savedName;
-            gameState.phase = 'PLAY';
-            log(`Loaded session for ${savedName} (${savedLang})`);
-        }
-    } catch (e) { log("Storage Error: " + e); }
+        const lang = await _bridge.getLocalStorage('g2_lang');
+        const name = await _bridge.getLocalStorage('g2_name');
+        const room = await _bridge.getLocalStorage('g2_room');
+        const hp = await _bridge.getLocalStorage('g2_hp');
+        const inv = await _bridge.getLocalStorage('g2_inv');
+
+        if (lang) gameState.lang = lang as Language;
+        if (name) gameState.name = name;
+        if (room) gameState.room = room as Room;
+        if (hp) gameState.hp = Number(hp);
+        if (inv) gameState.inventory = JSON.parse(inv);
+
+        log(`Session Loaded: ${gameState.name} (${gameState.lang}) at ${gameState.room}`);
+        gameState.phase = 'MENU';
+    } catch (e) { log("Storage Load Error: " + e); }
 
     const tProp = new TextContainerProperty({
         ...DEFAULT_TEXT_PROPS,
