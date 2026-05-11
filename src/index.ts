@@ -11,8 +11,8 @@ import {
 
 // --- Global UI Helpers ---
 declare global {
-    interface Window {
-        logToUI: (msg: string) => void;
+    interface Window { 
+        logToUI: (msg: string) => void; 
         setStatus: (status: string) => void;
     }
 }
@@ -157,7 +157,7 @@ function getDescription() {
 function onScroll(direction: 'UP' | 'DOWN') {
     if (gameState.showHelp) return;
     const delta = direction === 'UP' ? -1 : 1;
-
+    
     if (gameState.phase === 'LANG') gameState.cursor = (gameState.cursor + delta + 2) % 2;
     else if (gameState.phase === 'NAME') charIndex = (charIndex + delta + ALPHABET.length) % ALPHABET.length;
     else if (gameState.phase === 'PLAY') {
@@ -174,47 +174,47 @@ function onSelect(): boolean {
         gameState.phase = 'LANG'; gameState.hp = 10; gameState.inventory = []; gameState.room = 'ENTRANCE'; gameState.cursor = 0; charIndex = 0; gameState.name = '';
         needsRebuild = true;
     } else if (gameState.phase === 'LANG') {
-        gameState.lang = gameState.cursor === 0 ? 'IT' : 'EN';
+        gameState.lang = gameState.cursor === 0 ? 'IT' : 'EN'; 
         gameState.phase = 'NAME';
         needsRebuild = true;
     } else if (gameState.phase === 'NAME') {
         const char = ALPHABET[charIndex];
-        if (char === '_') {
-            if (gameState.name.length > 0) {
-                gameState.phase = 'PLAY';
-                gameState.cursor = 0;
+        if (char === '_') { 
+            if (gameState.name.length > 0) { 
+                gameState.phase = 'PLAY'; 
+                gameState.cursor = 0; 
                 needsRebuild = true;
-            }
-        } else if (gameState.name.length < 8) {
-            gameState.name += char;
+            } 
+        } else if (gameState.name.length < 8) { 
+            gameState.name += char; 
         }
     } else if (gameState.phase === 'PLAY') {
         const roomData = ROOMS[gameState.lang][gameState.room];
         const opt = roomData.options[gameState.cursor];
-        if (opt === "Help" || opt === "Aiuto") {
-            gameState.showHelp = true;
+        if (opt === "Help" || opt === "Aiuto") { 
+            gameState.showHelp = true; 
         } else {
             gameState.tempMsg = '';
-            if (gameState.room === 'ENTRANCE') {
-                if (gameState.cursor === 0) gameState.room = 'HALL';
-                else gameState.tempMsg = gameState.lang === 'IT' ? "Nulla di interessante." : "Nothing interesting.";
-            } else if (gameState.room === 'HALL') {
-                if (gameState.cursor === 0) { gameState.room = 'WELL'; gameState.hp -= 1; }
-                else if (gameState.cursor === 1) gameState.room = 'ALTAR';
-                else if (gameState.cursor === 2) gameState.room = 'ENTRANCE';
-            } else if (gameState.room === 'WELL') {
-                if (gameState.cursor === 0) {
-                    const i = gameState.lang === 'IT' ? "Torcia" : "Torch";
+            if (gameState.room === 'ENTRANCE') { 
+                if (gameState.cursor === 0) gameState.room = 'HALL'; 
+                else gameState.tempMsg = gameState.lang === 'IT' ? "Nulla di interessante." : "Nothing interesting."; 
+            } else if (gameState.room === 'HALL') { 
+                if (gameState.cursor === 0) { gameState.room = 'WELL'; gameState.hp -= 1; } 
+                else if (gameState.cursor === 1) gameState.room = 'ALTAR'; 
+                else if (gameState.cursor === 2) gameState.room = 'ENTRANCE'; 
+            } else if (gameState.room === 'WELL') { 
+                if (gameState.cursor === 0) { 
+                    const i = gameState.lang === 'IT' ? "Torcia" : "Torch"; 
                     if (!gameState.inventory.includes(i)) {
                         gameState.inventory.push(i);
                         gameState.tempMsg = gameState.lang === 'IT' ? "Hai preso la torcia!" : "You got the torch!";
                     }
-                } else if (gameState.cursor === 1) gameState.room = 'HALL';
-            } else if (gameState.room === 'ALTAR') {
+                } else if (gameState.cursor === 1) gameState.room = 'HALL'; 
+            } else if (gameState.room === 'ALTAR') { 
                 if (gameState.cursor === 0) {
                     gameState.phase = 'WIN';
                     needsRebuild = true;
-                } else if (gameState.cursor === 1) gameState.room = 'HALL';
+                } else if (gameState.cursor === 1) gameState.room = 'HALL'; 
             }
             if (gameState.hp <= 0) {
                 gameState.phase = 'DEAD';
@@ -249,7 +249,7 @@ async function init() {
             containerTotalNum: 2,
             textObject: [tProp, dProp]
         });
-
+        
         const res = await _bridge.createStartUpPageContainer(layout);
         log("Layout Response: " + res);
         updateStatus(res === 0 ? "Display Active" : `Layout Error: ${res}`);
@@ -262,7 +262,7 @@ async function init() {
         log(`RAW: ${JSON.stringify(event)}`);
 
         let type: number | undefined = undefined;
-
+        
         // Try to get type from typed events
         const anyEvent = (event.textEvent || event.sysEvent || event.listEvent) as any;
         if (anyEvent) {
@@ -290,21 +290,21 @@ async function init() {
         // SCROLL_TOP (1)
         if (type === 1 || type === OsEventTypeList.SCROLL_TOP_EVENT) {
             onScroll('UP');
-        }
+        } 
         // SCROLL_BOTTOM (2)
         else if (type === 2 || type === OsEventTypeList.SCROLL_BOTTOM_EVENT) {
             onScroll('DOWN');
-        }
+        } 
         // CLICK (0)
         else if (type === 0 || type === OsEventTypeList.CLICK_EVENT) {
             needsRebuild = onSelect();
-        }
+        } 
         // DOUBLE CLICK (3)
         else if (type === 3 || type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
             log("Exit via Double Click");
             if (_bridge) _bridge.shutDownPageContainer(1);
         }
-
+        
         even.showCard(getTitle(), getDescription(), needsRebuild);
     });
 
