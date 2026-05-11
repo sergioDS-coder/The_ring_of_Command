@@ -16,6 +16,14 @@ declare global {
         setStatus: (status: string) => void;
     }
 }
+
+const DEFAULT_TEXT_PROPS = {
+    borderWidth: 0,
+    borderColor: 0,
+    borderRadius: 0,
+    paddingLength: 0,
+    isEventCapture: 0
+};
 const log = (msg: string) => {
     console.log(msg);
     if (window.logToUI) window.logToUI(msg);
@@ -110,8 +118,8 @@ const even = {
                 const layout = new RebuildPageContainer({
                     containerTotalNum: 2,
                     textObject: [
-                        new TextContainerProperty({ containerID: 0, xPosition: 40, yPosition: 16, width: 496, height: 56, content: title }),
-                        new TextContainerProperty({ containerID: 1, xPosition: 40, yPosition: 80, width: 496, height: 192, content: desc, isEventCapture: 1 })
+                        new TextContainerProperty({ ...DEFAULT_TEXT_PROPS, containerID: 0, xPosition: 40, yPosition: 16, width: 496, height: 56, content: title }),
+                        new TextContainerProperty({ ...DEFAULT_TEXT_PROPS, containerID: 1, xPosition: 40, yPosition: 80, width: 496, height: 192, content: desc, isEventCapture: 1 })
                     ]
                 });
                 await _bridge.rebuildPageContainer(layout);
@@ -227,10 +235,12 @@ async function init() {
     updateStatus("Connected!");
 
     const tProp = new TextContainerProperty({
+        ...DEFAULT_TEXT_PROPS,
         containerID: 0, xPosition: 40, yPosition: 16, width: 496, height: 56, content: getTitle()
     });
 
     const dProp = new TextContainerProperty({
+        ...DEFAULT_TEXT_PROPS,
         containerID: 1, xPosition: 40, yPosition: 80, width: 496, height: 192, content: getDescription(), isEventCapture: 1
     });
 
@@ -252,10 +262,25 @@ async function init() {
         log(`RAW: ${JSON.stringify(event)}`);
 
         let type: number | undefined = undefined;
-        if (event.textEvent !== undefined && event.textEvent.eventType !== undefined) {
-            type = Number(event.textEvent.eventType);
-        } else if (event.sysEvent !== undefined && event.sysEvent.eventType !== undefined) {
-            type = Number(event.sysEvent.eventType);
+
+        // Try to get type from typed events
+        const anyEvent = (event.textEvent || event.sysEvent || event.listEvent) as any;
+        if (anyEvent) {
+            if (anyEvent.eventType !== undefined) {
+                type = Number(anyEvent.eventType);
+            } else if (anyEvent.eventSource !== undefined) {
+                // In some cases, eventType: 0 (Click) might be omitted in JSON
+                log("eventType missing, but eventSource exists. Assuming CLICK (0)");
+                type = 0;
+            }
+        }
+
+        // Fallback to jsonData if still undefined
+        if (type === undefined && event.jsonData) {
+            const data = event.jsonData;
+            if (data.eventType !== undefined) type = Number(data.eventType);
+            else if (data.sysEvent?.eventType !== undefined) type = Number(data.sysEvent.eventType);
+            else if (data.textEvent?.eventType !== undefined) type = Number(data.textEvent.eventType);
         }
 
         if (type === undefined) return;
