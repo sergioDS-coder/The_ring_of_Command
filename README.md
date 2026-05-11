@@ -4,10 +4,12 @@
 
 ## Features
 
-- 🖋️ **Atmospheric Narrative**: Short, impactful paragraphs optimized for dual micro-LED displays.
-- 🇮🇹 🇬🇧 **Bilingual**: Play in Italian or English.
+- 🖋️ **Atmospheric Narrative**: An epic fantasy branching story optimized for dual micro-LED displays.
+- 🏰 **Persistent World**: Automatic saving of HP, Inventory, and Quest Flags via LocalStorage.
+- 🐲 **Epic Encounters**: Fight orcs, challenge dragons, and rescue the princess.
+- 🎨 **ASCII Art**: Visual storytelling using high-contrast ASCII graphics.
+- 🇮🇹 🇬🇧 **Bilingual**: Full Italian and English support.
 - 💍 **R1 Ring Integration**: Navigate choices via scroll gestures and confirm with a click.
-- 🛡️ **RPG Elements**: Simple state machine managing Health Points (HP), Inventory, and Room states.
 - 🟢 **Monochrome UI**: High-contrast layout specifically designed for the G2's 4-bit greyscale display.
 
 ## Installation
