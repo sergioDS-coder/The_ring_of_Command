@@ -18,3 +18,4 @@ Port 5182 is in use, trying another one...
   ➜  Local:   http://localhost:5183/
   ➜  Network: use --host to expose
 9:36:32 PM [vite] page reload src/index.ts
+9:49:43 PM [vite] page reload src/index.ts

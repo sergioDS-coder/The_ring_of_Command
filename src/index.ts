@@ -616,22 +616,24 @@ async function init() {
             imageObject: [iProp]
         });
 
-        let res = await _bridge.createStartUpPageContainer(layout);
-        log("Startup Layout Response: " + res);
+        const startRes = await _bridge.createStartUpPageContainer(layout);
+        log("Startup Layout Response: " + startRes);
 
-        // If startup fails with 1, it might already be initialized, try rebuild
-        if (res !== 0) {
+        let success = startRes === 0;
+
+        // If startup fails with 1 (already active), try rebuild
+        if (!success) {
             log("Startup failed, attempting Rebuild...");
             const rebuildLayout = new RebuildPageContainer({
                 containerTotalNum: 3,
                 textObject: [tProp, dProp],
                 imageObject: [iProp]
             });
-            res = await _bridge.rebuildPageContainer(rebuildLayout);
-            log("Rebuild Response: " + res);
+            success = await _bridge.rebuildPageContainer(rebuildLayout);
+            log("Rebuild Success: " + success);
         }
 
-        updateStatus(res === 0 ? "Display Active" : `Layout Error: ${res}`);
+        updateStatus(success ? "Display Active" : `Layout Error: ${startRes}`);
     } catch (e) {
         log("Init Exception: " + e);
         updateStatus("Init Exception");
