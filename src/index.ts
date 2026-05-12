@@ -69,9 +69,34 @@ function generateProceduralImage(type: string): number[] {
                 if (Math.abs(dx-20) < 10 && Math.abs(dy-10) < 10) color = 0;
                 if (Math.abs(dx+20) < 10 && Math.abs(dy-10) < 10) color = 0;
             } else if (type === 'CROWN') {
-                if (y > 40 && y < 100 && x > 20 && x < 124) color = 15;
+                if (y > 40 && y < 90 && x > 30 && x < 114) color = 15;
+                if (y < 40 && (x === 30 || x === 72 || x === 114)) color = 15;
             } else if (type === 'MENU') {
                 color = (x + y) % 32 < 2 ? 15 : 1;
+            } else if (type === 'SWORD') {
+                if (Math.abs(x - 72) < 4 && y > 20 && y < 100) color = 12; // blade
+                if (Math.abs(x - 72) < 20 && Math.abs(y - 100) < 4) color = 8; // guard
+                if (Math.abs(x - 72) < 6 && y > 100 && y < 130) color = 6; // hilt
+            } else if (type === 'POTION') {
+                const dx = x - 72, dy = y - 100;
+                if (dx*dx + dy*dy < 900) color = (y > 90) ? 14 : 3; // bottle body
+                if (Math.abs(x - 72) < 8 && y > 50 && y < 75) color = 7; // neck
+            } else if (type === 'ORC') {
+                const dx = x - 72, dy = y - 60;
+                if (dx*dx + dy*dy < 1600) color = 4; // head
+                if (Math.abs(x-72) < 40 && y > 80) color = 2; // body
+                if (Math.abs(x-72) < 30 && Math.abs(y-50) < 5) color = 15; // tusks
+            } else if (type === 'DRAGON') {
+                if (Math.abs(x-y) < 20 || Math.abs(x-(144-y)) < 20) color = 9; // wings
+                const dx = x - 72, dy = y - 72;
+                if (dx*dx + dy*dy < 1200) color = 12; // body
+                if (x > 90 && Math.abs(y-50) < 10) color = 15; // fire
+            } else if (type === 'PRINCESS') {
+                if (Math.abs(x - 72) < 15 && y > 30 && y < 60) color = 14; // head
+                if (x > 72 - (y-60) && x < 72 + (y-60) && y > 60) color = 10; // dress
+            } else if (type === 'MAP') {
+                if (x > 20 && x < 124 && y > 20 && y < 124) color = 13; // parchment
+                if ((x+y) % 20 < 2 && x > 30 && x < 114 && y > 30 && y < 114) color = 0; // lines
             }
             data[y * size + x] = color;
         }
@@ -95,7 +120,13 @@ const IMAGES: Record<string, number[]> = {
     THRONE: generateProceduralImage('THRONE'),
     SKULL: generateProceduralImage('SKULL'),
     CROWN: generateProceduralImage('CROWN'),
-    MENU: generateProceduralImage('MENU')
+    MENU: generateProceduralImage('MENU'),
+    SWORD: generateProceduralImage('SWORD'),
+    POTION: generateProceduralImage('POTION'),
+    ORC: generateProceduralImage('ORC'),
+    DRAGON: generateProceduralImage('DRAGON'),
+    PRINCESS: generateProceduralImage('PRINCESS'),
+    MAP: generateProceduralImage('MAP')
 };
 const log = (msg: string) => {
     console.log(msg);
@@ -147,13 +178,13 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             options: ["Entra nella Locanda", "Visita il Fabbro", "Vai a Ovest", "Aiuto"]
         }),
         TAVERN: (s) => ({
-            image: "TAVERN",
+            image: s.flags.got_map ? "TAVERN" : "MAP",
             title: "Locanda 'Il Boccale'",
             desc: "Odore di stufato e birra. Un bardo canta la ballata della Principessa rapita.",
             options: s.flags.got_map ? ["Parla col Bardo", "Esci", "Aiuto"] : ["Chiedi della mappa", "Ascolta musica", "Esci", "Aiuto"]
         }),
         BLACKSMITH: (s) => ({
-            image: "FORGE",
+            image: "SWORD",
             title: "La Fucina",
             desc: "Il calore è intenso. Il fabbro batte il ferro con forza ritmica.",
             options: s.inventory.includes("Spada") ? ["Affila la spada", "Esci", "Aiuto"] : ["Compra una Spada", "Esci", "Aiuto"]
@@ -165,7 +196,7 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             options: ["Prosegui a Nord", "Torna al Villaggio", "Aiuto"]
         }),
         ORC_BRIDGE: (s) => ({
-            image: "BRIDGE",
+            image: s.flags.orc_dead ? "BRIDGE" : "ORC",
             title: "Ponte di Pietra",
             desc: s.flags.orc_dead ? "Il corpo dell'orco giace a terra. Il ponte è libero." : "Un enorme Orco blocca il passaggio brandendo una clava nodosa.",
             options: s.flags.orc_dead ? ["Attraversa il ponte", "Torna indietro", "Aiuto"] : ["Combatti l'Orco", "Tenta di sgattaiolare", "Torna indietro", "Aiuto"]
@@ -177,7 +208,7 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             options: s.flags.cave_cleared ? ["Prosegui a Nord", "Esci", "Aiuto"] : ["Attacca i Goblin", "Cerca tesori", "Esci", "Aiuto"]
         }),
         HIDDEN_LAKE: () => ({
-            image: "LAKE",
+            image: "POTION",
             title: "Lago Nascosto",
             desc: "Un'oasi di pace. Un vecchio mercante offre oggetti rari.",
             options: ["Compra Pozione HP", "Vai a Nord", "Aiuto"]
@@ -189,13 +220,13 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             options: ["Scala la torre", "Torna al lago", "Aiuto"]
         }),
         DRAGON_TOWER: (s) => ({
-            image: "TOWER",
+            image: s.flags.dragon_dead ? "TOWER" : "DRAGON",
             title: "Torre del Drago",
             desc: s.flags.dragon_dead ? "Le fiamme si sono spente. Il drago è caduto." : "Un Drago Sputafuoco sorveglia l'ingresso. Il calore è insopportabile.",
             options: s.flags.dragon_dead ? ["Entra nella stanza", "Torna giù", "Aiuto"] : ["Sfida il Drago", "Usa la pozione", "Torna giù", "Aiuto"]
         }),
         THRONE_ROOM: () => ({
-            image: "THRONE",
+            image: "PRINCESS",
             title: "Sala del Trono",
             desc: "La Principessa è incatenata al trono. Ti guarda con speranza.",
             options: ["Libera la Principessa", "Esamina tesori", "Aiuto"]
@@ -221,13 +252,13 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             options: ["Enter the Tavern", "Visit Blacksmith", "Go West", "Help"]
         }),
         TAVERN: (s) => ({
-            image: "TAVERN",
+            image: s.flags.got_map ? "TAVERN" : "MAP",
             title: "The Tankard Tavern",
             desc: "Smell of stew and ale. A bard sings of the kidnapped Princess.",
             options: s.flags.got_map ? ["Talk to Bard", "Exit", "Help"] : ["Ask for map", "Listen to music", "Exit", "Help"]
         }),
         BLACKSMITH: (s) => ({
-            image: "FORGE",
+            image: "SWORD",
             title: "The Forge",
             desc: "Intense heat. The smith strikes iron with rhythmic force.",
             options: s.inventory.includes("Sword") ? ["Sharpen sword", "Exit", "Help"] : ["Buy a Sword", "Exit", "Help"]
@@ -239,7 +270,7 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             options: ["Proceed North", "Back to Village", "Help"]
         }),
         ORC_BRIDGE: (s) => ({
-            image: "BRIDGE",
+            image: s.flags.orc_dead ? "BRIDGE" : "ORC",
             title: "Stone Bridge",
             desc: s.flags.orc_dead ? "The orc's body lies on the ground. The bridge is clear." : "A massive Orc blocks the way wielding a gnarled club.",
             options: s.flags.orc_dead ? ["Cross the bridge", "Go back", "Help"] : ["Fight the Orc", "Try to sneak", "Go back", "Help"]
@@ -251,7 +282,7 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             options: s.flags.cave_cleared ? ["Proceed North", "Exit", "Help"] : ["Attack Goblins", "Search for loot", "Exit", "Help"]
         }),
         HIDDEN_LAKE: () => ({
-            image: "LAKE",
+            image: "POTION",
             title: "Hidden Lake",
             desc: "An oasis of peace. An old merchant offers rare items.",
             options: ["Buy HP Potion", "Go North", "Help"]
@@ -263,13 +294,13 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             options: ["Climb the tower", "Back to lake", "Help"]
         }),
         DRAGON_TOWER: (s) => ({
-            image: "TOWER",
+            image: s.flags.dragon_dead ? "TOWER" : "DRAGON",
             title: "Dragon Tower",
             desc: s.flags.dragon_dead ? "The flames have died out. The dragon has fallen." : "A fire-breathing Dragon guards the entrance. Heat is unbearable.",
             options: s.flags.dragon_dead ? ["Enter the room", "Go down", "Help"] : ["Challenge Dragon", "Use potion", "Go down", "Help"]
         }),
         THRONE_ROOM: () => ({
-            image: "THRONE",
+            image: "PRINCESS",
             title: "Throne Room",
             desc: "The Princess is chained to the throne. She looks at you with hope.",
             options: ["Free the Princess", "Examine treasures", "Help"]
