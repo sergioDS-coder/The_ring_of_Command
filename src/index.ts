@@ -4,6 +4,8 @@ import {
     RebuildPageContainer,
     TextContainerProperty,
     TextContainerUpgrade,
+    ImageContainerProperty,
+    ImageRawDataUpdate,
     OsEventTypeList,
     EvenAppBridge,
     EvenHubEvent
@@ -23,6 +25,25 @@ const DEFAULT_TEXT_PROPS = {
     borderRadius: 0,
     paddingLength: 0,
     isEventCapture: 0
+};
+
+// --- Image Helpers ---
+// Generates a simple 144x144 pattern (a frame)
+function generateFramePattern(color: number): number[] {
+    const size = 144;
+    const data = new Array(size * size).fill(0);
+    for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            if (x < 4 || x > 140 || y < 4 || y > 140) data[y * size + x] = color;
+        }
+    }
+    return data;
+}
+
+const IMAGES: Record<string, number[]> = {
+    DEFAULT: generateFramePattern(8),
+    GATE: generateFramePattern(15),
+    SWORD: generateFramePattern(12)
 };
 const log = (msg: string) => {
     console.log(msg);
@@ -237,16 +258,31 @@ const even = {
         try {
             if (forceRebuild) {
                 const layout = new RebuildPageContainer({
-                    containerTotalNum: 2,
+                    containerTotalNum: 3,
                     textObject: [
                         new TextContainerProperty({ ...DEFAULT_TEXT_PROPS, containerID: 0, xPosition: 40, yPosition: 16, width: 496, height: 56, content: title }),
-                        new TextContainerProperty({ ...DEFAULT_TEXT_PROPS, containerID: 1, xPosition: 40, yPosition: 80, width: 496, height: 192, content: desc, isEventCapture: 1 })
+                        new TextContainerProperty({ ...DEFAULT_TEXT_PROPS, containerID: 1, xPosition: 200, yPosition: 80, width: 336, height: 192, content: desc, isEventCapture: 1 })
+                    ],
+                    imageObject: [
+                        new ImageContainerProperty({ containerID: 2, xPosition: 40, yPosition: 80, width: 144, height: 144 })
                     ]
                 });
                 await _bridge.rebuildPageContainer(layout);
             } else {
                 await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 0, content: title }));
                 await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 1, content: desc }));
+            }
+
+            // Update Image based on room
+            if (gameState.phase === 'PLAY') {
+                let imgKey = "DEFAULT";
+                if (gameState.room.includes("GATE")) imgKey = "GATE";
+                if (gameState.inventory.includes("Spada") || gameState.inventory.includes("Sword")) imgKey = "SWORD";
+
+                await _bridge.updateImageRawData(new ImageRawDataUpdate({
+                    containerID: 2,
+                    imageData: IMAGES[imgKey] || IMAGES.DEFAULT
+                }));
             }
         } catch (e) { log("showCard Error: " + e); }
     }
@@ -502,13 +538,18 @@ async function init() {
 
     const dProp = new TextContainerProperty({
         ...DEFAULT_TEXT_PROPS,
-        containerID: 1, xPosition: 40, yPosition: 80, width: 496, height: 192, content: getDescription(), isEventCapture: 1
+        containerID: 1, xPosition: 200, yPosition: 80, width: 336, height: 192, content: getDescription(), isEventCapture: 1
+    });
+
+    const iProp = new ImageContainerProperty({
+        containerID: 2, xPosition: 40, yPosition: 80, width: 144, height: 144
     });
 
     try {
         const layout = new CreateStartUpPageContainer({
-            containerTotalNum: 2,
-            textObject: [tProp, dProp]
+            containerTotalNum: 3,
+            textObject: [tProp, dProp],
+            imageObject: [iProp]
         });
 
         const res = await _bridge.createStartUpPageContainer(layout);
