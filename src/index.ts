@@ -28,22 +28,74 @@ const DEFAULT_TEXT_PROPS = {
 };
 
 // --- Image Helpers ---
-// Generates a simple 144x144 pattern (a frame)
-function generateFramePattern(color: number): number[] {
+function generateProceduralImage(type: string): number[] {
     const size = 144;
     const data = new Array(size * size).fill(0);
     for (let y = 0; y < size; y++) {
         for (let x = 0; x < size; x++) {
-            if (x < 4 || x > 140 || y < 4 || y > 140) data[y * size + x] = color;
+            let color = 0;
+            if (type === 'FOREST') {
+                if (x % 16 < 2 && y > 40) color = 6;
+                if ((x+y) % 32 < 4) color = 4;
+            } else if (type === 'OAK') {
+                const dx = x - 72, dy = y - 60;
+                if (dx*dx + dy*dy < 1600) color = 10;
+                if (Math.abs(dx) < 10 && y > 80) color = 7;
+            } else if (type === 'GATE') {
+                if (x < 10 || x > 134 || y < 10 || y > 134) color = 15;
+                if (x % 20 === 0) color = 8;
+            } else if (type === 'TAVERN') {
+                if (y > 100) color = 5;
+                if (x > 50 && x < 94 && y > 40 && y < 100) color = 12;
+            } else if (type === 'FORGE') {
+                color = Math.random() > 0.8 ? 15 : 2;
+            } else if (type === 'BRIDGE') {
+                if (y > 60 && y < 84) color = 9;
+                if (x % 30 < 5) color = 12;
+            } else if (type === 'CAVE') {
+                color = (x*y) % 16;
+                if (color > 8) color = 0;
+            } else if (type === 'MOUNTAIN') {
+                if (y > 144 - x) color = 7;
+            } else if (type === 'TOWER') {
+                if (x > 40 && x < 104) color = 11;
+                if (y % 20 < 2) color = 0;
+            } else if (type === 'THRONE') {
+                if (x > 30 && x < 114 && y > 20) color = 14;
+                if (x > 60 && x < 84 && y > 40 && y < 90) color = 4;
+            } else if (type === 'SKULL') {
+                const dx = x - 72, dy = y - 72;
+                if (dx*dx + dy*dy < 2500) color = 15;
+                if (Math.abs(dx-20) < 10 && Math.abs(dy-10) < 10) color = 0;
+                if (Math.abs(dx+20) < 10 && Math.abs(dy-10) < 10) color = 0;
+            } else if (type === 'CROWN') {
+                if (y > 40 && y < 100 && x > 20 && x < 124) color = 15;
+            } else if (type === 'MENU') {
+                color = (x + y) % 32 < 2 ? 15 : 1;
+            }
+            data[y * size + x] = color;
         }
     }
     return data;
 }
 
 const IMAGES: Record<string, number[]> = {
-    DEFAULT: generateFramePattern(8),
-    GATE: generateFramePattern(15),
-    SWORD: generateFramePattern(12)
+    DEFAULT: generateProceduralImage('MENU'),
+    FOREST: generateProceduralImage('FOREST'),
+    OAK: generateProceduralImage('OAK'),
+    GATE: generateProceduralImage('GATE'),
+    TAVERN: generateProceduralImage('TAVERN'),
+    FORGE: generateProceduralImage('FORGE'),
+    PATH: generateProceduralImage('FOREST'),
+    BRIDGE: generateProceduralImage('BRIDGE'),
+    CAVE: generateProceduralImage('CAVE'),
+    LAKE: generateProceduralImage('CAVE'),
+    MOUNTAIN: generateProceduralImage('MOUNTAIN'),
+    TOWER: generateProceduralImage('TOWER'),
+    THRONE: generateProceduralImage('THRONE'),
+    SKULL: generateProceduralImage('SKULL'),
+    CROWN: generateProceduralImage('CROWN'),
+    MENU: generateProceduralImage('MENU')
 };
 const log = (msg: string) => {
     console.log(msg);
@@ -74,76 +126,76 @@ interface GameState {
     tempMsg: string;
 }
 
-const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string; desc: string; options: string[]; art: string }>> = {
+const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string; desc: string; options: string[]; image: string }>> = {
     IT: {
         FOREST_EDGE: () => ({
-            art: "  /\\  /\\\n /  \\/  \\\n  ||  ||",
+            image: "FOREST",
             title: "Confine del Bosco",
             desc: "L'alba rischiara una foresta antica. Senti il richiamo dell'ignoto.",
             options: ["Vai a Nord (Quercia)", "Vai a Est (Villaggio)", "Aiuto"]
         }),
         OLD_OAK: (s) => ({
-            art: "   _MM_\n  (    )\n   /  \\",
+            image: "OAK",
             title: "Antica Quercia",
             desc: "Un albero millenario. Un vecchio cavaliere siede qui stanco.",
             options: s.flags.met_knight ? ["Parla con Sir Alistair", "Vai a Sud", "Aiuto"] : ["Avvicinati al cavaliere", "Vai a Sud", "Aiuto"]
         }),
         VILLAGE_GATE: () => ({
-            art: "  |---| \n  | o |",
+            image: "GATE",
             title: "Porta di Oakhaven",
             desc: "Un ridente villaggio. Gli abitanti sembrano preoccupati per le voci di un drago.",
             options: ["Entra nella Locanda", "Visita il Fabbro", "Vai a Ovest", "Aiuto"]
         }),
         TAVERN: (s) => ({
-            art: "  [ U ]\n   ---",
+            image: "TAVERN",
             title: "Locanda 'Il Boccale'",
             desc: "Odore di stufato e birra. Un bardo canta la ballata della Principessa rapita.",
             options: s.flags.got_map ? ["Parla col Bardo", "Esci", "Aiuto"] : ["Chiedi della mappa", "Ascolta musica", "Esci", "Aiuto"]
         }),
         BLACKSMITH: (s) => ({
-            art: "   /|\\\n   ---",
+            image: "FORGE",
             title: "La Fucina",
             desc: "Il calore è intenso. Il fabbro batte il ferro con forza ritmica.",
             options: s.inventory.includes("Spada") ? ["Affila la spada", "Esci", "Aiuto"] : ["Compra una Spada", "Esci", "Aiuto"]
         }),
         MISTY_PATH: () => ({
-            art: "  ~ ~ ~\n   /  \\",
+            image: "PATH",
             title: "Sentiero Nebbioso",
             desc: "La visibilità è scarsa. Senti dei grugniti in lontananza.",
             options: ["Prosegui a Nord", "Torna al Villaggio", "Aiuto"]
         }),
         ORC_BRIDGE: (s) => ({
-            art: "  _____\n /_____\\",
+            image: "BRIDGE",
             title: "Ponte di Pietra",
             desc: s.flags.orc_dead ? "Il corpo dell'orco giace a terra. Il ponte è libero." : "Un enorme Orco blocca il passaggio brandendo una clava nodosa.",
             options: s.flags.orc_dead ? ["Attraversa il ponte", "Torna indietro", "Aiuto"] : ["Combatti l'Orco", "Tenta di sgattaiolare", "Torna indietro", "Aiuto"]
         }),
         DARK_CAVE: (s) => ({
-            art: "  /---\\\n /     \\",
+            image: "CAVE",
             title: "Caverna Oscura",
             desc: "Gocce d'acqua cadono dal soffitto. Gli occhi di piccoli goblin brillano nel buio.",
             options: s.flags.cave_cleared ? ["Prosegui a Nord", "Esci", "Aiuto"] : ["Attacca i Goblin", "Cerca tesori", "Esci", "Aiuto"]
         }),
         HIDDEN_LAKE: () => ({
-            art: "  ~~~~~\n  ~~~~~",
+            image: "LAKE",
             title: "Lago Nascosto",
             desc: "Un'oasi di pace. Un vecchio mercante offre oggetti rari.",
             options: ["Compra Pozione HP", "Vai a Nord", "Aiuto"]
         }),
         MOUNTAIN_BASE: () => ({
-            art: "   /\\ \n  /  \\",
+            image: "MOUNTAIN",
             title: "Piedi della Montagna",
             desc: "Il vento ulula. Sopra di te svetta la torre del drago.",
             options: ["Scala la torre", "Torna al lago", "Aiuto"]
         }),
         DRAGON_TOWER: (s) => ({
-            art: "   | |\n   | |",
+            image: "TOWER",
             title: "Torre del Drago",
             desc: s.flags.dragon_dead ? "Le fiamme si sono spente. Il drago è caduto." : "Un Drago Sputafuoco sorveglia l'ingresso. Il calore è insopportabile.",
             options: s.flags.dragon_dead ? ["Entra nella stanza", "Torna giù", "Aiuto"] : ["Sfida il Drago", "Usa la pozione", "Torna giù", "Aiuto"]
         }),
         THRONE_ROOM: () => ({
-            art: "   -V- \n   | |",
+            image: "THRONE",
             title: "Sala del Trono",
             desc: "La Principessa è incatenata al trono. Ti guarda con speranza.",
             options: ["Libera la Principessa", "Esamina tesori", "Aiuto"]
@@ -151,73 +203,73 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
     },
     EN: {
         FOREST_EDGE: () => ({
-            art: "  /\\  /\\\n /  \\/  \\\n  ||  ||",
+            image: "FOREST",
             title: "Forest Edge",
             desc: "Dawn breaks over an ancient forest. You feel the call of the unknown.",
             options: ["Go North (Oak)", "Go East (Village)", "Help"]
         }),
         OLD_OAK: (s) => ({
-            art: "   _MM_\n  (    )\n   /  \\",
+            image: "OAK",
             title: "Old Oak",
             desc: "A thousand-year-old tree. A tired old knight sits here.",
             options: s.flags.met_knight ? ["Speak with Sir Alistair", "Go South", "Help"] : ["Approach the knight", "Go South", "Help"]
         }),
         VILLAGE_GATE: () => ({
-            art: "  |---| \n  | o |",
+            image: "GATE",
             title: "Oakhaven Gate",
             desc: "A peaceful village. Residents seem worried about dragon rumors.",
             options: ["Enter the Tavern", "Visit Blacksmith", "Go West", "Help"]
         }),
         TAVERN: (s) => ({
-            art: "  [ U ]\n   ---",
+            image: "TAVERN",
             title: "The Tankard Tavern",
             desc: "Smell of stew and ale. A bard sings of the kidnapped Princess.",
             options: s.flags.got_map ? ["Talk to Bard", "Exit", "Help"] : ["Ask for map", "Listen to music", "Exit", "Help"]
         }),
         BLACKSMITH: (s) => ({
-            art: "   /|\\\n   ---",
+            image: "FORGE",
             title: "The Forge",
             desc: "Intense heat. The smith strikes iron with rhythmic force.",
             options: s.inventory.includes("Sword") ? ["Sharpen sword", "Exit", "Help"] : ["Buy a Sword", "Exit", "Help"]
         }),
         MISTY_PATH: () => ({
-            art: "  ~ ~ ~\n   /  \\",
+            image: "PATH",
             title: "Misty Path",
             desc: "Visibility is low. You hear grunts in the distance.",
             options: ["Proceed North", "Back to Village", "Help"]
         }),
         ORC_BRIDGE: (s) => ({
-            art: "  _____\n /_____\\",
+            image: "BRIDGE",
             title: "Stone Bridge",
             desc: s.flags.orc_dead ? "The orc's body lies on the ground. The bridge is clear." : "A massive Orc blocks the way wielding a gnarled club.",
             options: s.flags.orc_dead ? ["Cross the bridge", "Go back", "Help"] : ["Fight the Orc", "Try to sneak", "Go back", "Help"]
         }),
         DARK_CAVE: (s) => ({
-            art: "  /---\\\n /     \\",
+            image: "CAVE",
             title: "Dark Cave",
             desc: "Water drips from the ceiling. Small goblin eyes glint in the dark.",
             options: s.flags.cave_cleared ? ["Proceed North", "Exit", "Help"] : ["Attack Goblins", "Search for loot", "Exit", "Help"]
         }),
         HIDDEN_LAKE: () => ({
-            art: "  ~~~~~\n  ~~~~~",
+            image: "LAKE",
             title: "Hidden Lake",
             desc: "An oasis of peace. An old merchant offers rare items.",
             options: ["Buy HP Potion", "Go North", "Help"]
         }),
         MOUNTAIN_BASE: () => ({
-            art: "   /\\ \n  /  \\",
+            image: "MOUNTAIN",
             title: "Mountain Base",
             desc: "Wind howls. Above you looms the dragon's tower.",
             options: ["Climb the tower", "Back to lake", "Help"]
         }),
         DRAGON_TOWER: (s) => ({
-            art: "   | |\n   | |",
+            image: "TOWER",
             title: "Dragon Tower",
             desc: s.flags.dragon_dead ? "The flames have died out. The dragon has fallen." : "A fire-breathing Dragon guards the entrance. Heat is unbearable.",
             options: s.flags.dragon_dead ? ["Enter the room", "Go down", "Help"] : ["Challenge Dragon", "Use potion", "Go down", "Help"]
         }),
         THRONE_ROOM: () => ({
-            art: "   -V- \n   | |",
+            image: "THRONE",
             title: "Throne Room",
             desc: "The Princess is chained to the throne. She looks at you with hope.",
             options: ["Free the Princess", "Examine treasures", "Help"]
@@ -273,17 +325,22 @@ const even = {
                 await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 1, content: desc }));
             }
 
-            // Update Image based on room
+            // Update Image based on phase/room
+            let imgKey = "DEFAULT";
             if (gameState.phase === 'PLAY') {
-                let imgKey = "DEFAULT";
-                if (gameState.room.includes("GATE")) imgKey = "GATE";
-                if (gameState.inventory.includes("Spada") || gameState.inventory.includes("Sword")) imgKey = "SWORD";
-
-                await _bridge.updateImageRawData(new ImageRawDataUpdate({
-                    containerID: 2,
-                    imageData: IMAGES[imgKey] || IMAGES.DEFAULT
-                }));
+                imgKey = ROOMS[gameState.lang][gameState.room](gameState).image;
+            } else if (gameState.phase === 'MENU') {
+                imgKey = "MENU";
+            } else if (gameState.phase === 'DEAD') {
+                imgKey = "SKULL";
+            } else if (gameState.phase === 'WIN') {
+                imgKey = "CROWN";
             }
+
+            await _bridge.updateImageRawData(new ImageRawDataUpdate({
+                containerID: 2,
+                imageData: IMAGES[imgKey] || IMAGES.DEFAULT
+            }));
         } catch (e) { log("showCard Error: " + e); }
     }
 };
@@ -314,8 +371,7 @@ function getDescription() {
     if (gameState.phase === 'NAME') return (gameState.lang === 'IT' ? "Scorri per cambiare lettera.\nSeleziona '_' per confermare." : "Scroll to change letter.\nSelect '_' to confirm.");
     if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') return (gameState.phase === 'DEAD' ? (gameState.lang === 'IT' ? "La tua avventura finisce qui." : "Adventure ends here.") : (gameState.lang === 'IT' ? "Mondo salvo!" : "World saved!")) + (gameState.lang === 'IT' ? "\n\n> Ricomincia" : "\n\n> Restart");
     const room = ROOMS[gameState.lang][gameState.room](gameState);
-    let d = room.art + "\n\n";
-    d += (gameState.tempMsg ? gameState.tempMsg + "\n\n" : "") + room.desc + "\n\nHP: " + gameState.hp;
+    let d = (gameState.tempMsg ? gameState.tempMsg + "\n\n" : "") + room.desc + "\n\nHP: " + gameState.hp;
     if (gameState.inventory.length > 0) d += "\nInv: " + gameState.inventory.join(", ");
     d += "\n\n";
     room.options.forEach((opt, i) => { d += (i === gameState.cursor ? "> " : "  ") + opt + "\n"; });
@@ -532,13 +588,20 @@ async function init() {
     } catch (e) { log("Storage Load Error: " + e); }
 
     const tProp = new TextContainerProperty({
-        ...DEFAULT_TEXT_PROPS,
-        containerID: 0, xPosition: 40, yPosition: 16, width: 496, height: 56, content: getTitle()
+        containerID: 0,
+        xPosition: 40, yPosition: 16,
+        width: 496, height: 56,
+        content: getTitle(),
+        borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0, isEventCapture: 0
     });
 
     const dProp = new TextContainerProperty({
-        ...DEFAULT_TEXT_PROPS,
-        containerID: 1, xPosition: 200, yPosition: 80, width: 336, height: 192, content: getDescription(), isEventCapture: 1
+        containerID: 1,
+        xPosition: 208, yPosition: 80,
+        width: 328, height: 192,
+        content: getDescription(),
+        isEventCapture: 1,
+        borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0
     });
 
     const iProp = new ImageContainerProperty({
@@ -546,14 +609,28 @@ async function init() {
     });
 
     try {
+        // Attempt to create startup container
         const layout = new CreateStartUpPageContainer({
             containerTotalNum: 3,
             textObject: [tProp, dProp],
             imageObject: [iProp]
         });
 
-        const res = await _bridge.createStartUpPageContainer(layout);
-        log("Layout Response: " + res);
+        let res = await _bridge.createStartUpPageContainer(layout);
+        log("Startup Layout Response: " + res);
+
+        // If startup fails with 1, it might already be initialized, try rebuild
+        if (res !== 0) {
+            log("Startup failed, attempting Rebuild...");
+            const rebuildLayout = new RebuildPageContainer({
+                containerTotalNum: 3,
+                textObject: [tProp, dProp],
+                imageObject: [iProp]
+            });
+            res = await _bridge.rebuildPageContainer(rebuildLayout);
+            log("Rebuild Response: " + res);
+        }
+
         updateStatus(res === 0 ? "Display Active" : `Layout Error: ${res}`);
     } catch (e) {
         log("Init Exception: " + e);
