@@ -28,7 +28,27 @@ const DEFAULT_TEXT_PROPS = {
 };
 
 // --- Image Helpers ---
-function generateProceduralImage(type: string): number[] {
+function pixelsToPng(pixels: number[], width: number, height: number): string {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+
+    const imageData = ctx.createImageData(width, height);
+    for (let i = 0; i < pixels.length; i++) {
+        const color = Math.min(15, pixels[i]) * 17; // 4-bit to 8-bit (15 * 17 = 255)
+        const idx = i * 4;
+        imageData.data[idx] = 0;      // R (Glasses are green-only, but simulator might use RGB)
+        imageData.data[idx + 1] = color; // G
+        imageData.data[idx + 2] = 0;      // B
+        imageData.data[idx + 3] = 255;    // A
+    }
+    ctx.putImageData(imageData, 0, 0);
+    return canvas.toDataURL('image/png').split(',')[1]; // Return base64 without prefix
+}
+
+function generateProceduralImage(type: string): string {
     const size = 144;
     const data = new Array(size * size).fill(0);
     for (let y = 0; y < size; y++) {
@@ -101,10 +121,10 @@ function generateProceduralImage(type: string): number[] {
             data[y * size + x] = color;
         }
     }
-    return data;
+    return pixelsToPng(data, size, size);
 }
 
-const IMAGES: Record<string, number[]> = {
+const IMAGES: Record<string, string> = {
     DEFAULT: generateProceduralImage('MENU'),
     FOREST: generateProceduralImage('FOREST'),
     OAK: generateProceduralImage('OAK'),
@@ -368,9 +388,10 @@ const even = {
                 imgKey = "CROWN";
             }
 
+            const imgData = IMAGES[imgKey] || IMAGES.DEFAULT;
             await _bridge.updateImageRawData(new ImageRawDataUpdate({
                 containerID: 2,
-                imageData: IMAGES[imgKey] || IMAGES.DEFAULT
+                imageData: imgData
             }));
         } catch (e) { log("showCard Error: " + e); }
     }
