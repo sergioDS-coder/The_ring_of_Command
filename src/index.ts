@@ -28,100 +28,166 @@ const DEFAULT_TEXT_PROPS = {
 };
 
 // --- Image Helpers ---
-function pixelsToPng(pixels: number[], width: number, height: number): string {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return '';
+class Painter {
+    data: number[];
+    width: number;
+    height: number;
 
-    const imageData = ctx.createImageData(width, height);
-    for (let i = 0; i < pixels.length; i++) {
-        const color = Math.min(15, pixels[i]) * 17; // 4-bit to 8-bit (15 * 17 = 255)
-        const idx = i * 4;
-        imageData.data[idx] = 0;      // R (Glasses are green-only, but simulator might use RGB)
-        imageData.data[idx + 1] = color; // G
-        imageData.data[idx + 2] = 0;      // B
-        imageData.data[idx + 3] = 255;    // A
+    constructor(w: number, h: number) {
+        this.width = w;
+        this.height = h;
+        this.data = new Array(w * h).fill(0);
     }
-    ctx.putImageData(imageData, 0, 0);
-    return canvas.toDataURL('image/png').split(',')[1]; // Return base64 without prefix
+
+    setPixel(x: number, y: number, color: number) {
+        if (x < 0 || x >= this.width || y < 0 || y >= this.height) return;
+        this.data[y * this.width + x] = color;
+    }
+
+    drawRect(x: number, y: number, w: number, h: number, color: number, filled = true) {
+        for (let i = x; i < x + w; i++) {
+            for (let j = y; j < y + h; j++) {
+                if (filled || i === x || i === x + w - 1 || j === y || j === y + h - 1) {
+                    this.setPixel(i, j, color);
+                }
+            }
+        }
+    }
+
+    drawCircle(cx: number, cy: number, r: number, color: number, filled = true) {
+        const r2 = r * r;
+        for (let x = cx - r; x <= cx + r; x++) {
+            for (let y = cy - r; y <= cy + r; y++) {
+                const d2 = (x - cx) ** 2 + (y - cy) ** 2;
+                if (filled ? d2 <= r2 : Math.abs(d2 - r2) < r) {
+                    this.setPixel(x, y, color);
+                }
+            }
+        }
+    }
+
+    drawTriangle(x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, color: number) {
+        // Simple bounding box filling
+        const minX = Math.min(x1, x2, x3), maxX = Math.max(x1, x2, x3);
+        const minY = Math.min(y1, y2, y3), maxY = Math.max(y1, y2, y3);
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                const b1 = (x - x2) * (y1 - y2) - (x1 - x2) * (y - y2) < 0;
+                const b2 = (x - x3) * (y2 - y3) - (x2 - x3) * (y - y3) < 0;
+                const b3 = (x - x1) * (y3 - y1) - (x3 - x1) * (y - y1) < 0;
+                if ((b1 === b2) && (b2 === b3)) this.setPixel(x, y, color);
+            }
+        }
+    }
+
+    toPng(): string {
+        const canvas = document.createElement('canvas');
+        canvas.width = this.width;
+        canvas.height = this.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return '';
+        const imageData = ctx.createImageData(this.width, this.height);
+        for (let i = 0; i < this.data.length; i++) {
+            const color = Math.min(15, this.data[i]) * 17;
+            const idx = i * 4;
+            imageData.data[idx] = 0;
+            imageData.data[idx + 1] = color;
+            imageData.data[idx + 2] = 0;
+            imageData.data[idx + 3] = 255;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        return canvas.toDataURL('image/png').split(',')[1];
+    }
 }
 
 function generateProceduralImage(type: string): string {
-    const size = 144;
-    const data = new Array(size * size).fill(0);
-    for (let y = 0; y < size; y++) {
-        for (let x = 0; x < size; x++) {
-            let color = 0;
-            if (type === 'FOREST') {
-                if (x % 16 < 2 && y > 40) color = 6;
-                if ((x+y) % 32 < 4) color = 4;
-            } else if (type === 'OAK') {
-                const dx = x - 72, dy = y - 60;
-                if (dx*dx + dy*dy < 1600) color = 10;
-                if (Math.abs(dx) < 10 && y > 80) color = 7;
-            } else if (type === 'GATE') {
-                if (x < 10 || x > 134 || y < 10 || y > 134) color = 15;
-                if (x % 20 === 0) color = 8;
-            } else if (type === 'TAVERN') {
-                if (y > 100) color = 5;
-                if (x > 50 && x < 94 && y > 40 && y < 100) color = 12;
-            } else if (type === 'FORGE') {
-                color = Math.random() > 0.8 ? 15 : 2;
-            } else if (type === 'BRIDGE') {
-                if (y > 60 && y < 84) color = 9;
-                if (x % 30 < 5) color = 12;
-            } else if (type === 'CAVE') {
-                color = (x*y) % 16;
-                if (color > 8) color = 0;
-            } else if (type === 'MOUNTAIN') {
-                if (y > 144 - x) color = 7;
-            } else if (type === 'TOWER') {
-                if (x > 40 && x < 104) color = 11;
-                if (y % 20 < 2) color = 0;
-            } else if (type === 'THRONE') {
-                if (x > 30 && x < 114 && y > 20) color = 14;
-                if (x > 60 && x < 84 && y > 40 && y < 90) color = 4;
-            } else if (type === 'SKULL') {
-                const dx = x - 72, dy = y - 72;
-                if (dx*dx + dy*dy < 2500) color = 15;
-                if (Math.abs(dx-20) < 10 && Math.abs(dy-10) < 10) color = 0;
-                if (Math.abs(dx+20) < 10 && Math.abs(dy-10) < 10) color = 0;
-            } else if (type === 'CROWN') {
-                if (y > 40 && y < 90 && x > 30 && x < 114) color = 15;
-                if (y < 40 && (x === 30 || x === 72 || x === 114)) color = 15;
-            } else if (type === 'MENU') {
-                color = (x + y) % 32 < 2 ? 15 : 1;
-            } else if (type === 'SWORD') {
-                if (Math.abs(x - 72) < 4 && y > 20 && y < 100) color = 12; // blade
-                if (Math.abs(x - 72) < 20 && Math.abs(y - 100) < 4) color = 8; // guard
-                if (Math.abs(x - 72) < 6 && y > 100 && y < 130) color = 6; // hilt
-            } else if (type === 'POTION') {
-                const dx = x - 72, dy = y - 100;
-                if (dx*dx + dy*dy < 900) color = (y > 90) ? 14 : 3; // bottle body
-                if (Math.abs(x - 72) < 8 && y > 50 && y < 75) color = 7; // neck
-            } else if (type === 'ORC') {
-                const dx = x - 72, dy = y - 60;
-                if (dx*dx + dy*dy < 1600) color = 4; // head
-                if (Math.abs(x-72) < 40 && y > 80) color = 2; // body
-                if (Math.abs(x-72) < 30 && Math.abs(y-50) < 5) color = 15; // tusks
-            } else if (type === 'DRAGON') {
-                if (Math.abs(x-y) < 20 || Math.abs(x-(144-y)) < 20) color = 9; // wings
-                const dx = x - 72, dy = y - 72;
-                if (dx*dx + dy*dy < 1200) color = 12; // body
-                if (x > 90 && Math.abs(y-50) < 10) color = 15; // fire
-            } else if (type === 'PRINCESS') {
-                if (Math.abs(x - 72) < 15 && y > 30 && y < 60) color = 14; // head
-                if (x > 72 - (y-60) && x < 72 + (y-60) && y > 60) color = 10; // dress
-            } else if (type === 'MAP') {
-                if (x > 20 && x < 124 && y > 20 && y < 124) color = 13; // parchment
-                if ((x+y) % 20 < 2 && x > 30 && x < 114 && y > 30 && y < 114) color = 0; // lines
-            }
-            data[y * size + x] = color;
+    const p = new Painter(144, 144);
+    if (type === 'MENU') {
+        for (let i = 0; i < 144; i += 8) p.drawRect(i, 0, 1, 144, 2);
+        for (let i = 0; i < 144; i += 8) p.drawRect(0, i, 144, 1, 2);
+        p.drawRect(20, 20, 104, 104, 1, true);
+    } else if (type === 'FOREST') {
+        p.drawRect(0, 100, 144, 44, 2); // Ground
+        for (let i = 10; i < 144; i += 30) {
+            p.drawTriangle(i, 110, i + 15, 40, i + 30, 110, 5); // Trees
+            p.drawRect(i + 12, 110, 6, 20, 3); // Trunks
         }
+    } else if (type === 'OAK') {
+        p.drawRect(64, 80, 16, 60, 4); // Trunk
+        p.drawCircle(72, 60, 45, 8); // Canopy
+        p.drawCircle(60, 50, 10, 10); // Detail
+        p.drawCircle(85, 55, 8, 10);
+    } else if (type === 'GATE') {
+        p.drawRect(20, 40, 104, 104, 6); // Wall
+        p.drawRect(40, 60, 64, 84, 0); // Arch
+        for (let i = 20; i < 124; i += 10) p.drawRect(i, 40, 1, 104, 8); // Bricks
+    } else if (type === 'TAVERN') {
+        p.drawRect(10, 40, 124, 104, 4); // Building
+        p.drawRect(30, 10, 84, 30, 8); // Roof
+        p.drawRect(60, 90, 24, 54, 2); // Door
+        p.drawRect(30, 60, 20, 20, 12); // Window
+    } else if (type === 'FORGE') {
+        p.drawRect(0, 0, 144, 144, 1);
+        p.drawCircle(72, 100, 40, 3); // Furnace
+        p.drawCircle(72, 100, 25, 14); // Fire
+    } else if (type === 'BRIDGE') {
+        p.drawRect(0, 80, 144, 30, 6); // Bridge side
+        for (let i = 0; i < 144; i += 20) p.drawRect(i, 80, 5, 64, 4); // Pillars
+    } else if (type === 'CAVE') {
+        p.drawRect(0, 0, 144, 144, 2);
+        p.drawCircle(72, 144, 100, 0); // Entrance
+        for (let i = 0; i < 10; i++) p.drawCircle(Math.random()*144, Math.random()*144, 2, 8); // Rocks
+    } else if (type === 'MOUNTAIN') {
+        p.drawTriangle(0, 144, 72, 20, 144, 144, 4); // Main peak
+        p.drawTriangle(72, 20, 60, 40, 84, 40, 15); // Snow cap
+    } else if (type === 'TOWER') {
+        p.drawRect(50, 20, 44, 124, 7); // Main tower
+        p.drawRect(45, 10, 54, 15, 9); // Battlement
+        p.drawRect(65, 40, 14, 20, 0); // Window
+    } else if (type === 'THRONE') {
+        p.drawRect(40, 60, 64, 84, 8); // Throne back
+        p.drawRect(40, 110, 64, 34, 6); // Seat
+        p.drawRect(30, 100, 10, 44, 10); // Armrest
+        p.drawRect(104, 100, 10, 44, 10);
+    } else if (type === 'SKULL') {
+        p.drawCircle(72, 72, 40, 15); // Head
+        p.drawCircle(55, 65, 10, 0); // Eye L
+        p.drawCircle(89, 65, 10, 0); // Eye R
+        p.drawRect(62, 100, 20, 15, 12); // Teeth
+    } else if (type === 'CROWN') {
+        p.drawRect(30, 60, 84, 30, 15); // Base
+        p.drawTriangle(30, 60, 45, 30, 60, 60, 15); // Point 1
+        p.drawTriangle(60, 60, 72, 20, 84, 60, 15); // Point 2
+        p.drawTriangle(84, 60, 99, 30, 114, 60, 15); // Point 3
+    } else if (type === 'SWORD') {
+        p.drawRect(70, 20, 4, 100, 12); // Blade
+        p.drawRect(52, 100, 40, 4, 8); // Crossguard
+        p.drawRect(68, 110, 8, 24, 4); // Handle
+        p.drawCircle(72, 134, 6, 10); // Pommel
+    } else if (type === 'POTION') {
+        p.drawCircle(72, 100, 35, 6); // Bottle
+        p.drawRect(72 - 35, 100, 70, 35, 14); // Liquid
+        p.drawRect(64, 40, 16, 30, 4); // Neck
+    } else if (type === 'ORC') {
+        p.drawCircle(72, 60, 30, 4); // Head
+        p.drawRect(40, 90, 64, 54, 2); // Body
+        p.drawRect(50, 50, 10, 5, 15); // Tusk L
+        p.drawRect(84, 50, 10, 5, 15); // Tusk R
+    } else if (type === 'DRAGON') {
+        p.drawTriangle(10, 72, 72, 20, 134, 72, 9); // Wings
+        p.drawCircle(72, 80, 40, 12); // Body
+        p.drawCircle(100, 60, 15, 6); // Head
+        p.drawTriangle(115, 60, 140, 50, 140, 70, 14); // Fire
+    } else if (type === 'PRINCESS') {
+        p.drawTriangle(42, 144, 72, 60, 102, 144, 10); // Dress
+        p.drawCircle(72, 50, 20, 14); // Head
+        p.drawTriangle(62, 35, 72, 15, 82, 35, 15); // Crown
+    } else if (type === 'MAP') {
+        p.drawRect(20, 20, 104, 104, 13); // Paper
+        p.drawRect(25, 25, 94, 94, 0, false); // Border
+        p.drawRect(40, 60, 60, 2, 0); // Path
     }
-    return pixelsToPng(data, size, size);
+    return p.toPng();
 }
 
 const IMAGES: Record<string, string> = {
