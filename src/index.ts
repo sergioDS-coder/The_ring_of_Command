@@ -97,6 +97,32 @@ class Painter {
         }
     }
 
+    drawIsoCube(x: number, y: number, size: number, colorFront: number, colorTop: number, colorSide: number) {
+        const h = size * 0.5;
+        // Front face
+        this.drawRect(x, y, size, size, colorFront);
+        // Top face (parallelogram)
+        for (let j = 0; j < h; j++) {
+            const offset = h - j;
+            this.drawRect(x + offset, y - j, size, 1, colorTop);
+        }
+        // Side face (parallelogram)
+        for (let i = 0; i < h; i++) {
+            this.drawRect(x + size + i, y - i, 1, size, colorSide);
+        }
+    }
+
+    drawCylinder(cx: number, cy: number, r: number, h: number, colorMain: number, colorShadow: number) {
+        // Body with gradient
+        for (let i = -r; i <= r; i++) {
+            const shading = Math.abs(i) / r;
+            const color = Math.floor(colorMain - (colorMain - colorShadow) * shading);
+            this.drawRect(cx + i, cy - h, 1, h, color);
+        }
+        // Top ellipse
+        this.drawCircle(cx, cy - h, r, colorMain);
+    }
+
     toPng(): string {
         const canvas = document.createElement('canvas');
         canvas.width = this.width;
@@ -120,109 +146,82 @@ class Painter {
 function generateProceduralImage(type: string): string {
     const p = new Painter(144, 144);
     if (type === 'MENU') {
-        p.drawGradient(0, 0, 144, 144, 1, 4);
-        p.drawRect(20, 20, 104, 104, 15, false);
-        p.drawCircle(72, 72, 30, 10, false);
+        p.drawGradient(0, 0, 144, 144, 1, 5);
+        p.drawIsoCube(40, 60, 40, 15, 10, 8);
     } else if (type === 'FOREST') {
-        p.drawGradient(0, 0, 144, 100, 1, 0); // Sky
-        for (let i = -20; i < 160; i += 25) {
-            p.drawTriangle(i, 110, i + 20, 30, i + 40, 110, 3); // Back trees
+        p.drawGradient(0, 0, 144, 100, 1, 0);
+        for (let i = -10; i < 150; i += 30) {
+            p.drawCylinder(i + 15, 120, 5 + i/40, 60 + i/5, 4, 1); // Shaded trunks
+            p.drawTriangle(i-5, 60, i+15, 20, i+35, 60, 6); // Canopy
         }
-        for (let i = -10; i < 150; i += 35) {
-            p.drawTriangle(i, 120, i + 25, 50, i + 50, 120, 6); // Front trees
-            p.drawRect(i + 20, 110, 10, 25, 2); // Trunks
-        }
-        p.drawDitheredRect(0, 120, 144, 24, 4, 2); // Grass
     } else if (type === 'OAK') {
         p.drawGradient(0, 0, 144, 144, 2, 0);
-        p.drawRect(60, 70, 24, 74, 3); // Trunk
-        for (let i = 0; i < 5; i++) {
-            p.drawCircle(72 + (Math.random()-0.5)*60, 50 + (Math.random()-0.5)*50, 25, 7 + Math.floor(Math.random()*4));
-        }
+        p.drawCylinder(72, 130, 15, 70, 3, 1);
+        p.drawCircle(72, 50, 45, 8);
+        for (let i = 0; i < 10; i++) p.drawCircle(72+(Math.random()-0.5)*70, 50+(Math.random()-0.5)*50, 10, 12);
     } else if (type === 'GATE') {
-        p.drawDitheredRect(0, 0, 144, 144, 5, 3); // Stones
-        p.drawRect(35, 50, 74, 94, 0); // Passage
-        p.drawCircle(72, 50, 37, 0); // Arch top
-        for (let i = 0; i < 144; i += 20) p.drawRect(0, i, 144, 2, 1); // Mortar
+        p.drawGradient(0, 0, 144, 144, 4, 1);
+        p.drawIsoCube(20, 60, 30, 6, 8, 4); // Left pillar
+        p.drawIsoCube(94, 60, 30, 6, 8, 4); // Right pillar
+        p.drawRect(20, 40, 104, 20, 7); // Architrave
     } else if (type === 'TAVERN') {
-        p.drawRect(20, 50, 104, 94, 5);
-        p.drawTriangle(10, 50, 72, 10, 134, 50, 2); // Roof
-        p.drawRect(60, 100, 24, 44, 1); // Door
-        p.drawDitheredRect(35, 70, 20, 20, 15, 10); // Window L
-        p.drawDitheredRect(89, 70, 20, 20, 15, 10); // Window R
+        p.drawGradient(0, 0, 144, 144, 1, 0);
+        p.drawIsoCube(30, 70, 50, 5, 8, 3); // Main tavern body
+        p.drawTriangle(10, 70, 55, 30, 100, 70, 2); // Roof
     } else if (type === 'FORGE') {
         p.drawGradient(0, 0, 144, 144, 2, 0);
-        p.drawRect(30, 80, 84, 64, 4); // Anvil base
-        p.drawRect(20, 60, 104, 20, 6); // Anvil top
-        p.drawCircle(72, 120, 30, 15); // Heat glow
+        p.drawIsoCube(40, 80, 60, 6, 10, 4); // Anvil
+        p.drawCircle(72, 50, 20, 15); // Glowing iron
     } else if (type === 'BRIDGE') {
-        p.drawGradient(0, 0, 144, 100, 1, 4); // Sky/Water
-        p.drawRect(0, 80, 144, 20, 7); // Road
-        p.drawCircle(30, 100, 40, 0); // Arch 1
-        p.drawCircle(114, 100, 40, 0); // Arch 2
+        p.drawGradient(0, 0, 144, 100, 1, 3);
+        p.drawRect(0, 80, 144, 10, 8); // Side view of bridge
+        for (let i = 20; i < 144; i += 40) p.drawCylinder(i, 140, 10, 60, 5, 2); // Pillars
     } else if (type === 'CAVE') {
         p.drawRect(0, 0, 144, 144, 1);
-        p.drawCircle(72, 160, 130, 0); // Mouth
-        for (let i = 0; i < 144; i += 15) {
-            p.drawTriangle(i, 0, i + 7, 30 + Math.random()*20, i + 15, 0, 4); // Stalactites
-        }
+        p.drawCircle(72, 144, 100, 0);
+        for (let i = 0; i < 144; i += 20) p.drawCylinder(i, 30, 5, 30, 4, 1); // Stalactites
     } else if (type === 'MOUNTAIN') {
-        p.drawGradient(0, 0, 144, 144, 2, 5);
-        p.drawTriangle(10, 144, 72, 20, 134, 144, 3);
-        p.drawTriangle(72, 20, 50, 50, 94, 50, 15); // Snow
+        p.drawGradient(0, 0, 144, 144, 1, 4);
+        p.drawTriangle(0, 144, 72, 20, 144, 144, 3);
+        p.drawTriangle(30, 144, 90, 50, 150, 144, 2); // Layered peaks
     } else if (type === 'TOWER') {
         p.drawGradient(0, 0, 144, 144, 1, 0);
-        p.drawRect(50, 30, 44, 114, 6);
-        p.drawDitheredRect(45, 15, 54, 20, 8, 4); // Battlements
+        p.drawCylinder(72, 140, 30, 100, 7, 3); // Shaded round tower
+        p.drawRect(42, 10, 60, 30, 9); // Battlements
     } else if (type === 'THRONE') {
-        p.drawGradient(0, 0, 144, 144, 4, 1);
-        p.drawRect(45, 40, 54, 104, 13); // Throne gold
-        p.drawRect(50, 50, 44, 84, 2); // Cushion
-        p.drawCircle(72, 35, 15, 14); // Royal emblem
+        p.drawGradient(0, 0, 144, 144, 2, 0);
+        p.drawIsoCube(40, 80, 64, 13, 15, 11); // 3D Throne
+        p.drawRect(50, 90, 44, 54, 4); // Cushion
     } else if (type === 'SKULL') {
+        p.drawGradient(0, 0, 144, 144, 1, 0);
         p.drawCircle(72, 72, 50, 15);
-        p.drawCircle(50, 60, 12, 0);
-        p.drawCircle(94, 60, 12, 0);
-        p.drawTriangle(72, 80, 65, 95, 79, 95, 0); // Nose
-        p.drawRect(55, 105, 34, 10, 0); // Mouth
+        p.drawCylinder(72, 120, 20, 20, 14, 10); // Jaw
     } else if (type === 'CROWN') {
-        p.drawGradient(0, 0, 144, 144, 0, 3);
-        p.drawRect(30, 70, 84, 30, 15);
-        p.drawTriangle(30, 70, 45, 30, 60, 70, 15);
-        p.drawTriangle(60, 70, 72, 20, 84, 70, 15);
-        p.drawTriangle(84, 70, 99, 30, 114, 70, 15);
-        p.drawCircle(72, 85, 5, 10); // Jewel
+        p.drawGradient(0, 0, 144, 144, 4, 1);
+        p.drawIsoCube(35, 70, 70, 15, 12, 10);
+        p.drawCircle(70, 30, 10, 14); // Jewel top
     } else if (type === 'SWORD') {
         p.drawGradient(0, 0, 144, 144, 1, 0);
-        p.drawTriangle(72, 10, 67, 100, 77, 100, 13); // Blade
-        p.drawRect(40, 100, 64, 6, 8); // Guard
-        p.drawRect(68, 106, 8, 25, 5); // Grip
-        p.drawCircle(72, 135, 8, 9); // Pommel
+        p.drawTriangle(72, 10, 60, 100, 84, 100, 13); // 3D Broadsword
+        p.drawCylinder(72, 135, 6, 35, 5, 2); // Round handle
     } else if (type === 'POTION') {
-        p.drawCircle(72, 90, 40, 10, false); // Bottle glass
-        p.drawCircle(72, 95, 33, 14); // Liquid
-        p.drawRect(65, 25, 14, 30, 10); // Neck
-        p.drawRect(60, 20, 24, 8, 4); // Cork
+        p.drawGradient(0, 0, 144, 144, 1, 3);
+        p.drawCylinder(72, 120, 35, 60, 10, 6); // Shaded bottle
+        p.drawRect(40, 90, 64, 30, 14); // Glowing liquid
     } else if (type === 'ORC') {
-        p.drawCircle(72, 55, 35, 4); // Face
-        p.drawCircle(55, 50, 6, 15); // Eye L
-        p.drawCircle(89, 50, 6, 15); // Eye R
-        p.drawTriangle(50, 60, 40, 40, 60, 60, 15); // Tusk L
-        p.drawTriangle(94, 60, 104, 40, 84, 60, 15); // Tusk R
+        p.drawCylinder(72, 100, 40, 70, 4, 1); // Muscular body
+        p.drawCircle(72, 35, 25, 3); // Head
     } else if (type === 'DRAGON') {
-        p.drawTriangle(10, 80, 72, 10, 134, 80, 2); // Wings
-        p.drawCircle(72, 90, 45, 6); // Scales
-        p.drawCircle(110, 50, 20, 8); // Head
-        p.drawTriangle(125, 50, 160, 30, 160, 70, 14); // Breath
+        p.drawTriangle(10, 80, 72, 10, 134, 80, 2);
+        p.drawCylinder(72, 120, 45, 60, 6, 2); // Heavy body
+        p.drawCircle(110, 40, 20, 8);
     } else if (type === 'PRINCESS') {
-        p.drawTriangle(30, 144, 72, 50, 114, 144, 11); // Gown
-        p.drawCircle(72, 45, 22, 13); // Face
-        p.drawRect(55, 35, 34, 10, 1); // Hair
-        p.drawTriangle(65, 30, 72, 10, 79, 30, 15); // Crown
+        p.drawTriangle(20, 144, 72, 50, 124, 144, 11);
+        p.drawCircle(72, 40, 25, 14);
+        p.drawIsoCube(60, 15, 24, 15, 10, 12); // Cubic crown
     } else if (type === 'MAP') {
-        p.drawDitheredRect(20, 20, 104, 104, 13, 12);
-        p.drawRect(30, 30, 84, 84, 0, false);
-        p.drawTriangle(72, 72, 80, 85, 64, 85, 0); // "X" marks the spot
+        p.drawIsoCube(20, 40, 80, 13, 15, 11);
+        p.drawRect(40, 60, 20, 2, 0); // "X" marks the spot
     }
     return p.toPng();
 }
