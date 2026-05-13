@@ -169,6 +169,46 @@ class Painter {
         }
     }
 
+    drawFog(density: number) {
+        for (let i = 0; i < this.data.length; i++) {
+            if (Math.random() < density) {
+                const x = i % this.width;
+                const y = Math.floor(i / this.width);
+                const bay = Painter.BAYER_4X4[y % 4][x % 4];
+                if (bay > 10) this.data[i] = Math.max(0, this.data[i] - 1);
+                else if (bay < 4) this.data[i] = Math.min(15, this.data[i] + 1);
+            }
+        }
+    }
+
+    drawVines(x: number, y: number, length: number) {
+        let curX = x;
+        let curY = y;
+        for (let i = 0; i < length; i++) {
+            this.setPixel(curX, curY, 2);
+            this.setPixel(curX + 1, curY, 1);
+            curY++;
+            curX += Math.sin(i / 2) > 0 ? 1 : -1;
+            if (i % 5 === 0) this.drawCircle(curX, curY, 2, 3); // tiny leaves
+        }
+    }
+
+    drawVignette() {
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+        const maxDist = Math.sqrt(cx*cx + cy*cy);
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const d = Math.sqrt((x - cx)**2 + (y - cy)**2);
+                const factor = d / maxDist;
+                if (factor > 0.6) {
+                    const idx = y * this.width + x;
+                    this.data[idx] = Math.max(0, this.data[idx] - Math.floor((factor - 0.6) * 10));
+                }
+            }
+        }
+    }
+
     toPng(): string {
         const canvas = document.createElement('canvas');
         canvas.width = this.width;
@@ -192,82 +232,87 @@ class Painter {
 function generateProceduralImage(type: string): string {
     const p = new Painter(144, 144);
     if (type === 'MENU') {
-        p.drawGradient(0, 0, 144, 144, 1, 8);
-        p.drawIsoCube(40, 70, 44, 15, 12, 10);
+        p.drawGradient(0, 0, 144, 144, 1, 4);
+        p.drawIsoCube(40, 70, 44, 10, 8, 6);
+        p.drawFog(0.1);
     } else if (type === 'FOREST') {
-        p.drawGradient(0, 0, 144, 110, 2, 0);
+        p.drawGradient(0, 0, 144, 110, 1, 0);
         for (let i = -20; i < 160; i += 35) {
-            p.drawTriangle(i, 120, i + 25, 20, i + 50, 120, 4);
-            p.drawTexture(i + 15, 80, 20, 40, 'LEAVES');
+            p.drawTriangle(i, 120, i + 25, 20, i + 50, 120, 3);
         }
-        p.drawDitheredRect(0, 120, 144, 24, 3, 1);
+        p.drawFog(0.3);
+        p.drawDitheredRect(0, 120, 144, 24, 1, 0);
     } else if (type === 'OAK') {
-        p.drawGradient(0, 0, 144, 144, 3, 0);
-        p.drawCylinder(72, 144, 15, 74, 4, 1); // Shaded trunk
-        p.drawTexture(62, 70, 20, 74, 'WOOD');
-        p.drawShadedCircle(72, 55, 50, 8, 4); // Volumetric foliage
-        p.drawTexture(40, 30, 64, 45, 'LEAVES');
+        p.drawGradient(0, 0, 144, 144, 2, 0);
+        p.drawCylinder(72, 144, 15, 74, 3, 1);
+        p.drawShadedCircle(72, 55, 50, 5, 2);
+        p.drawVines(50, 30, 80);
+        p.drawFog(0.2);
     } else if (type === 'ELF') {
-        p.drawGradient(0, 0, 144, 144, 2, 8);
-        p.drawTriangle(40, 144, 72, 35, 104, 144, 13);
-        p.drawShadedCircle(72, 30, 20, 15, 12); // Glowing elf head/aura
-        p.drawTexture(50, 100, 44, 44, 'LEAVES');
+        p.drawGradient(0, 0, 144, 144, 1, 4);
+        p.drawTriangle(40, 144, 72, 35, 104, 144, 8);
+        p.drawShadedCircle(72, 30, 20, 15, 10);
+        p.drawFog(0.2);
     } else if (type === 'WITCH') {
-        p.drawGradient(0, 0, 144, 144, 0, 5);
-        p.drawCylinder(72, 140, 35, 45, 2, 1);
-        p.drawTexture(50, 110, 44, 20, 'STONE');
-        p.drawTriangle(55, 90, 72, 15, 89, 90, 4);
+        p.drawGradient(0, 0, 144, 144, 0, 3);
+        p.drawCylinder(72, 140, 35, 45, 2, 0);
+        p.drawVines(40, 40, 60);
+        p.drawTriangle(55, 90, 72, 15, 89, 90, 2);
     } else if (type === 'CASTLE') {
-        p.drawGradient(0, 0, 144, 144, 2, 5);
+        p.drawGradient(0, 0, 144, 144, 1, 3);
         p.drawTexture(0, 60, 144, 84, 'STONE');
-        p.drawIsoCube(15, 85, 35, 6, 9, 4);
-        p.drawIsoCube(94, 85, 35, 6, 9, 4);
+        p.drawVines(20, 60, 70);
+        p.drawIsoCube(15, 85, 35, 4, 6, 2);
+        p.drawIsoCube(94, 85, 35, 4, 6, 2);
     } else if (type === 'HALL') {
-        p.drawGradient(0, 0, 144, 144, 4, 1);
+        p.drawGradient(0, 0, 144, 144, 2, 0);
         p.drawTexture(20, 20, 20, 124, 'STONE');
         p.drawTexture(104, 20, 20, 124, 'STONE');
-        p.drawIsoCube(55, 100, 34, 14, 15, 12);
+        p.drawFog(0.15);
     } else if (type === 'GATE') {
-        p.drawGradient(0, 0, 144, 144, 6, 2);
+        p.drawGradient(0, 0, 144, 144, 3, 1);
         p.drawTexture(20, 40, 104, 104, 'STONE');
-        p.drawShadedCircle(72, 60, 40, 0, 2); // Dark archway
-        p.drawRect(32, 60, 80, 84, 0);
+        p.drawShadedCircle(72, 60, 40, 0, 1);
+        p.drawVines(30, 40, 50);
     } else if (type === 'TAVERN') {
         p.drawGradient(0, 0, 144, 144, 2, 0);
         p.drawIsoCube(35, 80, 54, 7, 10, 5);
         p.drawTexture(40, 85, 44, 40, 'WOOD');
         p.drawTriangle(15, 80, 65, 35, 115, 80, 3);
     } else if (type === 'FORGE') {
-        p.drawGradient(0, 0, 144, 144, 3, 0);
-        p.drawIsoCube(45, 90, 54, 5, 8, 4);
-        p.drawTexture(50, 95, 44, 40, 'STONE');
-        p.drawCircle(72, 60, 25, 15);
-    } else if (type === 'BRIDGE') {
-        p.drawGradient(0, 0, 144, 100, 4, 12);
-        p.drawTexture(0, 80, 144, 15, 'STONE');
-        for (let i = 25; i < 144; i += 45) p.drawCylinder(i, 144, 12, 64, 6, 3);
-    } else if (type === 'CAVE') {
-        p.drawRect(0, 0, 144, 144, 2);
-        p.drawCircle(72, 160, 120, 0);
-        p.drawTexture(0, 0, 144, 40, 'STONE');
-    } else if (type === 'MOUNTAIN') {
-        p.drawGradient(0, 0, 144, 144, 2, 6);
-        p.drawTriangle(10, 144, 72, 15, 134, 144, 5);
-        p.drawTriangle(72, 15, 55, 45, 89, 45, 15);
-    } else if (type === 'TOWER') {
-        p.drawGradient(0, 0, 144, 144, 2, 0);
-        p.drawCylinder(72, 144, 35, 110, 8, 4);
-        p.drawTexture(45, 50, 54, 70, 'STONE');
-    } else if (type === 'THRONE') {
-        p.drawGradient(0, 0, 144, 144, 4, 1);
-        p.drawIsoCube(40, 90, 64, 14, 15, 12);
-        p.drawTexture(50, 100, 44, 50, 'SCALES');
-    } else if (type === 'SKULL') {
         p.drawGradient(0, 0, 144, 144, 1, 0);
-        p.drawShadedCircle(72, 72, 50, 15, 10);
-        p.drawCylinder(72, 120, 20, 20, 14, 10); // Jaw
-        p.drawCircle(55, 65, 12, 0); // Eye holes
+        p.drawIsoCube(45, 90, 54, 2, 4, 1);
+        p.drawShadedCircle(72, 60, 25, 15, 4); // Burning forge
+        p.drawFog(0.2);
+    } else if (type === 'BRIDGE') {
+        p.drawGradient(0, 0, 144, 100, 2, 0);
+        p.drawTexture(0, 80, 144, 15, 'STONE');
+        for (let i = 25; i < 144; i += 45) p.drawCylinder(i, 144, 12, 64, 4, 1);
+        p.drawFog(0.4);
+    } else if (type === 'CAVE') {
+        p.drawRect(0, 0, 144, 144, 1);
+        p.drawCircle(72, 160, 120, 0);
+        p.drawFog(0.2);
+    } else if (type === 'MOUNTAIN') {
+        p.drawGradient(0, 0, 144, 144, 1, 4);
+        p.drawTriangle(10, 144, 72, 15, 134, 144, 2);
+        p.drawFog(0.3);
+    } else if (type === 'TOWER') {
+        p.drawGradient(0, 0, 144, 144, 1, 0);
+        p.drawCylinder(72, 144, 35, 110, 4, 1);
+        p.drawVines(40, 50, 90);
+        p.drawFog(0.2);
+    } else if (type === 'THRONE') {
+        p.drawGradient(0, 0, 144, 144, 2, 0);
+        p.drawIsoCube(40, 90, 64, 1, 2, 0);
+        p.drawFog(0.2);
+    } else if (type === 'SKULL') {
+        p.drawGradient(0, 0, 144, 144, 0, 1);
+        p.drawShadedCircle(72, 72, 50, 10, 2);
+        p.drawCylinder(72, 120, 20, 20, 8, 4);
+        p.drawCircle(55, 65, 12, 0);
         p.drawCircle(89, 65, 12, 0);
+        p.drawFog(0.15);
     } else if (type === 'CROWN') {
         p.drawGradient(0, 0, 144, 144, 4, 1);
         p.drawIsoCube(35, 70, 70, 15, 12, 10);
@@ -282,25 +327,28 @@ function generateProceduralImage(type: string): string {
         p.drawCylinder(72, 80, 12, 30, 8, 4); // Neck
         p.drawShadedCircle(72, 115, 25, 15, 8); // Glowing liquid core
     } else if (type === 'ORC') {
-        p.drawCylinder(72, 110, 45, 75, 5, 2);
-        p.drawTexture(40, 60, 64, 40, 'WOOD');
-        p.drawCircle(72, 40, 28, 4);
+        p.drawCylinder(72, 110, 45, 75, 2, 0);
+        p.drawCircle(72, 40, 28, 1);
+        p.drawFog(0.3);
     } else if (type === 'DRAGON') {
-        p.drawTriangle(10, 85, 72, 5, 134, 85, 3);
-        p.drawCylinder(72, 124, 48, 65, 7, 3);
-        p.drawTexture(40, 80, 64, 40, 'SCALES');
-        p.drawShadedCircle(115, 45, 22, 12, 4); // Menacing eye
-        p.drawCircle(115, 45, 5, 0); // Pupil
+        p.drawGradient(0, 0, 144, 144, 1, 0);
+        p.drawTriangle(10, 85, 72, 5, 134, 85, 2);
+        p.drawCylinder(72, 124, 48, 65, 4, 1);
+        p.drawShadedCircle(115, 45, 22, 14, 2);
+        p.drawCircle(115, 45, 5, 0);
+        p.drawFog(0.3);
     } else if (type === 'PRINCESS') {
-        p.drawTriangle(20, 144, 72, 45, 124, 144, 12);
-        p.drawCircle(72, 45, 25, 14);
-        p.drawTexture(60, 70, 24, 60, 'SCALES');
-        p.drawIsoCube(62, 10, 22, 15, 11, 13);
+        p.drawTriangle(20, 144, 72, 45, 124, 144, 4);
+        p.drawShadedCircle(72, 45, 25, 15, 0); // High contrast face
+        p.drawCircle(65, 45, 3, 0); // Void eyes
+        p.drawCircle(79, 45, 3, 0);
+        p.drawVines(72, 60, 40);
+        p.drawFog(0.2);
     } else if (type === 'MAP') {
-        p.drawIsoCube(20, 45, 85, 14, 15, 12);
-        p.drawTexture(30, 55, 65, 65, 'WOOD');
-        p.drawRect(45, 65, 25, 3, 0);
+        p.drawIsoCube(20, 45, 85, 8, 10, 6);
+        p.drawFog(0.1);
     }
+    p.drawVignette();
     return p.toPng();
 }
 
@@ -345,7 +393,7 @@ type Language = 'IT' | 'EN';
 type Room =
     'FOREST_EDGE' | 'OLD_OAK' | 'VILLAGE_GATE' | 'TAVERN' | 'BLACKSMITH' |
     'MISTY_PATH' | 'ELF_GROVE' | 'WITCH_HUT' | 'ORC_BRIDGE' | 'DARK_CAVE' | 'HIDDEN_LAKE' |
-    'MOUNTAIN_BASE' | 'CASTLE_GATES' | 'CASTLE_HALL' | 'DRAGON_TOWER' | 'THRONE_ROOM';
+    'MOUNTAIN_BASE' | 'CASTLE_GATES' | 'CASTLE_HALL' | 'CRYPT' | 'DRAGON_TOWER' | 'THRONE_ROOM';
 
 interface GameState {
     phase: 'MENU' | 'LANG' | 'NAME' | 'PLAY' | 'DEAD' | 'WIN';
@@ -366,13 +414,13 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
         FOREST_EDGE: () => ({
             image: "FOREST",
             title: "Confine del Bosco",
-            desc: "L'alba rischiara una foresta antica. Senti il richiamo dell'ignoto.",
+            desc: "L'aria è gelida. Alberi scheletrici sembrano artigliare il cielo plumbeo. Un senso di presagio ti opprime.",
             options: ["Vai a Nord (Quercia)", "Vai a Est (Villaggio)", "Aiuto"]
         }),
         OLD_OAK: (s) => {
-            let d = "Un albero millenario dalle radici profonde. Un vecchio cavaliere siede qui stanco, la sua armatura è opaca.";
+            let d = "Un albero morente, le sue foglie sono nere come cenere. Sir Alistair è accasciato, lo sguardo fisso nel vuoto.";
             if (s.inventory.includes("Amuleto") || s.inventory.includes("Amulet")) {
-                d = "Il Cavaliere si alza vedendo l'Amuleto. 'L'hai trovato! Corri alla Torre, il tempo stringe!'";
+                d = "Alistair sussulta: 'Quell'Amuleto... emana il freddo della tomba. La Principessa non è più chi credi.'";
             }
             return {
                 image: "OAK",
@@ -459,26 +507,32 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             desc: s.flags.dragon_dead ? "Le fiamme si sono spente. Il drago è caduto." : "Un Drago Sputafuoco sorveglia l'ingresso. Il calore è insopportabile.",
             options: s.flags.dragon_dead ? ["Entra nella stanza", "Torna giù", "Aiuto"] : ["Sfida il Drago", "Usa la pozione", "Torna giù", "Aiuto"]
         }),
+        CRYPT: (s) => ({
+            image: "SKULL",
+            title: "Cripta Dimenticata",
+            desc: "L'odore di morte è soffocante. Lapidi infrante rivelano orrori che avrebbero dovuto restare sepolti.",
+            options: s.flags.crypt_cleared ? ["Torna al Salone", "Aiuto"] : ["Esorcizza le Ombre", "Fuggi", "Aiuto"]
+        }),
         THRONE_ROOM: (s) => ({
             image: "PRINCESS",
-            title: s.flags.rescued ? "Vittoria!" : "Sala del Trono",
+            title: s.flags.rescued ? "Sacrificio?" : "Sala del Vuoto",
             desc: s.flags.rescued
-                ? "Le catene sono spezzate. La Principessa Lyra è finalmente libera e il male è stato scacciato dalle G2 Chronicles."
-                : "La Principessa Lyra è incatenata al trono di ossidiana. Il Drago è caduto, ma solo il tuo tocco può liberarla.",
-            options: s.flags.rescued ? ["Concludi la leggenda", "Aiuto"] : ["Spezza le catene", "Esamina la stanza", "Aiuto"]
+                ? "Le catene cadono, ma Lyra non sorride. I suoi occhi sono abissi neri. 'Il Vuoto ha bisogno di un nuovo corpo, Eroe.'"
+                : "La Principessa Lyra è legata al trono. La sua pelle è pallida come il marmo. Qualcosa non va.",
+            options: s.flags.rescued ? ["Accetta il Destino", "Aiuto"] : ["Libera Lyra", "Osserva i suoi occhi", "Aiuto"]
         })
     },
     EN: {
         FOREST_EDGE: () => ({
             image: "FOREST",
-            title: "Forest Edge",
-            desc: "Dawn breaks over an ancient forest. You feel the call of the unknown.",
+            title: "Edge of the Void",
+            desc: "The air is freezing. Skeletal trees claw at a leaden sky. A sense of dread oppresses you.",
             options: ["Go North (Oak)", "Go East (Village)", "Help"]
         }),
         OLD_OAK: (s) => {
-            let d = "A thousand-year-old tree with deep roots. A tired old knight sits here, his armor is dull.";
+            let d = "A dying tree, its leaves black as ash. Sir Alistair is slumped, staring into nothingness.";
             if (s.inventory.includes("Amulet") || s.inventory.includes("Amuleto")) {
-                d = "The Knight stands up seeing the Amulet. 'You found it! Hurry to the Tower, time is short!'";
+                d = "Alistair gasps: 'That Amulet... it radiates the cold of the grave. The Princess is no longer who you think.'";
             }
             return {
                 image: "OAK",
@@ -565,13 +619,19 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             desc: s.flags.dragon_dead ? "The flames have died out. The dragon has fallen." : "A fire-breathing Dragon guards the entrance. Heat is unbearable.",
             options: s.flags.dragon_dead ? ["Enter the room", "Go down", "Help"] : ["Challenge Dragon", "Use potion", "Go down", "Help"]
         }),
+        CRYPT: (s) => ({
+            image: "SKULL",
+            title: "Forgotten Crypt",
+            desc: "The stench of decay is suffocating. Shattered tombs reveal horrors that should have stayed buried.",
+            options: s.flags.crypt_cleared ? ["Back to Hall", "Help"] : ["Exorcise Shadows", "Flee", "Help"]
+        }),
         THRONE_ROOM: (s) => ({
             image: "PRINCESS",
-            title: s.flags.rescued ? "Victory!" : "Throne Room",
+            title: s.flags.rescued ? "Sacrifice?" : "Void Hall",
             desc: s.flags.rescued
-                ? "The chains are broken. Princess Lyra is finally free, and evil has been banished from the G2 Chronicles."
-                : "Princess Lyra is chained to the obsidian throne. The Dragon has fallen, but only your touch can free her.",
-            options: s.flags.rescued ? ["Finish the Legend", "Help"] : ["Break the chains", "Examine room", "Help"]
+                ? "The chains fall, but Lyra does not smile. Her eyes are black abysses. 'The Void needs a new vessel, Hero.'"
+                : "Princess Lyra is bound to the throne. Her skin is pale as marble. Something is wrong.",
+            options: s.flags.rescued ? ["Accept Fate", "Help"] : ["Free Lyra", "Peer into her eyes", "Help"]
         })
     }
 };
@@ -864,12 +924,19 @@ function onSelect(): boolean {
                 if (gameState.cursor === 0) {
                     const amulet = IT ? "Amuleto" : "Amulet";
                     if (!gameState.inventory.includes(amulet)) {
-                        gameState.inventory.push(amulet);
-                        gameState.tempMsg = IT ? "Hai trovato l'Amuleto dell'Alba!" : "You found the Dawn Amulet!";
+                        gameState.room = 'CRYPT';
                     } else {
                         gameState.room = 'DRAGON_TOWER';
                     }
                 } else if (gameState.cursor === 1) gameState.room = 'CASTLE_GATES';
+            } else if (gameState.room === 'CRYPT') {
+                if (gameState.cursor === 0) {
+                    const amulet = IT ? "Amuleto" : "Amulet";
+                    gameState.inventory.push(amulet);
+                    gameState.flags.crypt_cleared = true;
+                    gameState.tempMsg = IT ? "Hai strappato l'Amuleto alle Ombre!" : "You snatched the Amulet from the Shadows!";
+                    gameState.room = 'CASTLE_HALL';
+                } else if (gameState.cursor === 1) gameState.room = 'CASTLE_HALL';
             } else if (gameState.room === 'DRAGON_TOWER') {
                 if (gameState.flags.dragon_dead) {
                     if (gameState.cursor === 0) gameState.room = 'THRONE_ROOM';
