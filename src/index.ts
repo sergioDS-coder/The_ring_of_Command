@@ -87,12 +87,41 @@ class Painter {
         }
     }
 
+    drawTexture(x: number, y: number, w: number, h: number, type: 'STONE' | 'WOOD' | 'SCALES' | 'LEAVES') {
+        for (let i = x; i < x + w; i++) {
+            for (let j = y; j < y + h; j++) {
+                let color = 0;
+                if (type === 'STONE') {
+                    color = (i % 20 < 2 || j % 10 < 2) ? 2 : 5;
+                } else if (type === 'WOOD') {
+                    color = Math.abs(Math.sin(i / 4) * 2) + 3;
+                } else if (type === 'SCALES') {
+                    color = ((i + Math.sin(j/5)*5) % 10 < 2) ? 8 : 4;
+                } else if (type === 'LEAVES') {
+                    color = Math.random() > 0.7 ? 10 : 6;
+                }
+                this.setPixel(i, j, Math.floor(color));
+            }
+        }
+    }
+
+    // Bayer 4x4 Dithering matrix for smoother 4-bit gradients
+    private static BAYER_4X4 = [
+        [ 0, 8, 2, 10 ],
+        [ 12, 4, 14, 6 ],
+        [ 3, 11, 1, 9 ],
+        [ 15, 7, 13, 5 ]
+    ];
+
     drawGradient(x: number, y: number, w: number, h: number, colorTop: number, colorBottom: number) {
         for (let j = y; j < y + h; j++) {
-            const ratio = (j - y) / h;
-            const color = Math.floor(colorTop + (colorBottom - colorTop) * ratio);
             for (let i = x; i < x + w; i++) {
-                this.setPixel(i, j, color);
+                const ratio = (j - y) / h;
+                const exactColor = colorTop + (colorBottom - colorTop) * ratio;
+                const floorColor = Math.floor(exactColor);
+                const threshold = (exactColor - floorColor) * 16;
+                const bay = Painter.BAYER_4X4[j % 4][i % 4];
+                this.setPixel(i, j, Math.min(15, bay < threshold ? floorColor + 1 : floorColor));
             }
         }
     }
@@ -123,6 +152,23 @@ class Painter {
         this.drawCircle(cx, cy - h, r, colorMain);
     }
 
+    drawShadedCircle(cx: number, cy: number, r: number, colorCenter: number, colorEdge: number) {
+        const r2 = r * r;
+        for (let x = cx - r; x <= cx + r; x++) {
+            for (let y = cy - r; y <= cy + r; y++) {
+                const d2 = (x - cx) ** 2 + (y - cy) ** 2;
+                if (d2 <= r2) {
+                    const dist = Math.sqrt(d2) / r;
+                    const exactColor = colorCenter + (colorEdge - colorCenter) * dist;
+                    const floorColor = Math.floor(exactColor);
+                    const threshold = (exactColor - floorColor) * 16;
+                    const bay = Painter.BAYER_4X4[y % 4][x % 4];
+                    this.setPixel(x, y, Math.min(15, bay < threshold ? floorColor + 1 : floorColor));
+                }
+            }
+        }
+    }
+
     toPng(): string {
         const canvas = document.createElement('canvas');
         canvas.width = this.width;
@@ -146,56 +192,82 @@ class Painter {
 function generateProceduralImage(type: string): string {
     const p = new Painter(144, 144);
     if (type === 'MENU') {
-        p.drawGradient(0, 0, 144, 144, 1, 5);
-        p.drawIsoCube(40, 60, 40, 15, 10, 8);
+        p.drawGradient(0, 0, 144, 144, 1, 8);
+        p.drawIsoCube(40, 70, 44, 15, 12, 10);
     } else if (type === 'FOREST') {
-        p.drawGradient(0, 0, 144, 100, 1, 0);
-        for (let i = -10; i < 150; i += 30) {
-            p.drawCylinder(i + 15, 120, 5 + i/40, 60 + i/5, 4, 1); // Shaded trunks
-            p.drawTriangle(i-5, 60, i+15, 20, i+35, 60, 6); // Canopy
+        p.drawGradient(0, 0, 144, 110, 2, 0);
+        for (let i = -20; i < 160; i += 35) {
+            p.drawTriangle(i, 120, i + 25, 20, i + 50, 120, 4);
+            p.drawTexture(i + 15, 80, 20, 40, 'LEAVES');
         }
+        p.drawDitheredRect(0, 120, 144, 24, 3, 1);
     } else if (type === 'OAK') {
-        p.drawGradient(0, 0, 144, 144, 2, 0);
-        p.drawCylinder(72, 130, 15, 70, 3, 1);
-        p.drawCircle(72, 50, 45, 8);
-        for (let i = 0; i < 10; i++) p.drawCircle(72+(Math.random()-0.5)*70, 50+(Math.random()-0.5)*50, 10, 12);
-    } else if (type === 'GATE') {
+        p.drawGradient(0, 0, 144, 144, 3, 0);
+        p.drawCylinder(72, 144, 15, 74, 4, 1); // Shaded trunk
+        p.drawTexture(62, 70, 20, 74, 'WOOD');
+        p.drawShadedCircle(72, 55, 50, 8, 4); // Volumetric foliage
+        p.drawTexture(40, 30, 64, 45, 'LEAVES');
+    } else if (type === 'ELF') {
+        p.drawGradient(0, 0, 144, 144, 2, 8);
+        p.drawTriangle(40, 144, 72, 35, 104, 144, 13);
+        p.drawShadedCircle(72, 30, 20, 15, 12); // Glowing elf head/aura
+        p.drawTexture(50, 100, 44, 44, 'LEAVES');
+    } else if (type === 'WITCH') {
+        p.drawGradient(0, 0, 144, 144, 0, 5);
+        p.drawCylinder(72, 140, 35, 45, 2, 1);
+        p.drawTexture(50, 110, 44, 20, 'STONE');
+        p.drawTriangle(55, 90, 72, 15, 89, 90, 4);
+    } else if (type === 'CASTLE') {
+        p.drawGradient(0, 0, 144, 144, 2, 5);
+        p.drawTexture(0, 60, 144, 84, 'STONE');
+        p.drawIsoCube(15, 85, 35, 6, 9, 4);
+        p.drawIsoCube(94, 85, 35, 6, 9, 4);
+    } else if (type === 'HALL') {
         p.drawGradient(0, 0, 144, 144, 4, 1);
-        p.drawIsoCube(20, 60, 30, 6, 8, 4); // Left pillar
-        p.drawIsoCube(94, 60, 30, 6, 8, 4); // Right pillar
-        p.drawRect(20, 40, 104, 20, 7); // Architrave
+        p.drawTexture(20, 20, 20, 124, 'STONE');
+        p.drawTexture(104, 20, 20, 124, 'STONE');
+        p.drawIsoCube(55, 100, 34, 14, 15, 12);
+    } else if (type === 'GATE') {
+        p.drawGradient(0, 0, 144, 144, 6, 2);
+        p.drawTexture(20, 40, 104, 104, 'STONE');
+        p.drawShadedCircle(72, 60, 40, 0, 2); // Dark archway
+        p.drawRect(32, 60, 80, 84, 0);
     } else if (type === 'TAVERN') {
-        p.drawGradient(0, 0, 144, 144, 1, 0);
-        p.drawIsoCube(30, 70, 50, 5, 8, 3); // Main tavern body
-        p.drawTriangle(10, 70, 55, 30, 100, 70, 2); // Roof
+        p.drawGradient(0, 0, 144, 144, 2, 0);
+        p.drawIsoCube(35, 80, 54, 7, 10, 5);
+        p.drawTexture(40, 85, 44, 40, 'WOOD');
+        p.drawTriangle(15, 80, 65, 35, 115, 80, 3);
     } else if (type === 'FORGE') {
-        p.drawGradient(0, 0, 144, 144, 2, 0);
-        p.drawIsoCube(40, 80, 60, 6, 10, 4); // Anvil
-        p.drawCircle(72, 50, 20, 15); // Glowing iron
+        p.drawGradient(0, 0, 144, 144, 3, 0);
+        p.drawIsoCube(45, 90, 54, 5, 8, 4);
+        p.drawTexture(50, 95, 44, 40, 'STONE');
+        p.drawCircle(72, 60, 25, 15);
     } else if (type === 'BRIDGE') {
-        p.drawGradient(0, 0, 144, 100, 1, 3);
-        p.drawRect(0, 80, 144, 10, 8); // Side view of bridge
-        for (let i = 20; i < 144; i += 40) p.drawCylinder(i, 140, 10, 60, 5, 2); // Pillars
+        p.drawGradient(0, 0, 144, 100, 4, 12);
+        p.drawTexture(0, 80, 144, 15, 'STONE');
+        for (let i = 25; i < 144; i += 45) p.drawCylinder(i, 144, 12, 64, 6, 3);
     } else if (type === 'CAVE') {
-        p.drawRect(0, 0, 144, 144, 1);
-        p.drawCircle(72, 144, 100, 0);
-        for (let i = 0; i < 144; i += 20) p.drawCylinder(i, 30, 5, 30, 4, 1); // Stalactites
+        p.drawRect(0, 0, 144, 144, 2);
+        p.drawCircle(72, 160, 120, 0);
+        p.drawTexture(0, 0, 144, 40, 'STONE');
     } else if (type === 'MOUNTAIN') {
-        p.drawGradient(0, 0, 144, 144, 1, 4);
-        p.drawTriangle(0, 144, 72, 20, 144, 144, 3);
-        p.drawTriangle(30, 144, 90, 50, 150, 144, 2); // Layered peaks
+        p.drawGradient(0, 0, 144, 144, 2, 6);
+        p.drawTriangle(10, 144, 72, 15, 134, 144, 5);
+        p.drawTriangle(72, 15, 55, 45, 89, 45, 15);
     } else if (type === 'TOWER') {
-        p.drawGradient(0, 0, 144, 144, 1, 0);
-        p.drawCylinder(72, 140, 30, 100, 7, 3); // Shaded round tower
-        p.drawRect(42, 10, 60, 30, 9); // Battlements
-    } else if (type === 'THRONE') {
         p.drawGradient(0, 0, 144, 144, 2, 0);
-        p.drawIsoCube(40, 80, 64, 13, 15, 11); // 3D Throne
-        p.drawRect(50, 90, 44, 54, 4); // Cushion
+        p.drawCylinder(72, 144, 35, 110, 8, 4);
+        p.drawTexture(45, 50, 54, 70, 'STONE');
+    } else if (type === 'THRONE') {
+        p.drawGradient(0, 0, 144, 144, 4, 1);
+        p.drawIsoCube(40, 90, 64, 14, 15, 12);
+        p.drawTexture(50, 100, 44, 50, 'SCALES');
     } else if (type === 'SKULL') {
         p.drawGradient(0, 0, 144, 144, 1, 0);
-        p.drawCircle(72, 72, 50, 15);
+        p.drawShadedCircle(72, 72, 50, 15, 10);
         p.drawCylinder(72, 120, 20, 20, 14, 10); // Jaw
+        p.drawCircle(55, 65, 12, 0); // Eye holes
+        p.drawCircle(89, 65, 12, 0);
     } else if (type === 'CROWN') {
         p.drawGradient(0, 0, 144, 144, 4, 1);
         p.drawIsoCube(35, 70, 70, 15, 12, 10);
@@ -206,22 +278,28 @@ function generateProceduralImage(type: string): string {
         p.drawCylinder(72, 135, 6, 35, 5, 2); // Round handle
     } else if (type === 'POTION') {
         p.drawGradient(0, 0, 144, 144, 1, 3);
-        p.drawCylinder(72, 120, 35, 60, 10, 6); // Shaded bottle
-        p.drawRect(40, 90, 64, 30, 14); // Glowing liquid
+        p.drawShadedCircle(72, 110, 40, 12, 4); // Rounder shaded bottle
+        p.drawCylinder(72, 80, 12, 30, 8, 4); // Neck
+        p.drawShadedCircle(72, 115, 25, 15, 8); // Glowing liquid core
     } else if (type === 'ORC') {
-        p.drawCylinder(72, 100, 40, 70, 4, 1); // Muscular body
-        p.drawCircle(72, 35, 25, 3); // Head
+        p.drawCylinder(72, 110, 45, 75, 5, 2);
+        p.drawTexture(40, 60, 64, 40, 'WOOD');
+        p.drawCircle(72, 40, 28, 4);
     } else if (type === 'DRAGON') {
-        p.drawTriangle(10, 80, 72, 10, 134, 80, 2);
-        p.drawCylinder(72, 120, 45, 60, 6, 2); // Heavy body
-        p.drawCircle(110, 40, 20, 8);
+        p.drawTriangle(10, 85, 72, 5, 134, 85, 3);
+        p.drawCylinder(72, 124, 48, 65, 7, 3);
+        p.drawTexture(40, 80, 64, 40, 'SCALES');
+        p.drawShadedCircle(115, 45, 22, 12, 4); // Menacing eye
+        p.drawCircle(115, 45, 5, 0); // Pupil
     } else if (type === 'PRINCESS') {
-        p.drawTriangle(20, 144, 72, 50, 124, 144, 11);
-        p.drawCircle(72, 40, 25, 14);
-        p.drawIsoCube(60, 15, 24, 15, 10, 12); // Cubic crown
+        p.drawTriangle(20, 144, 72, 45, 124, 144, 12);
+        p.drawCircle(72, 45, 25, 14);
+        p.drawTexture(60, 70, 24, 60, 'SCALES');
+        p.drawIsoCube(62, 10, 22, 15, 11, 13);
     } else if (type === 'MAP') {
-        p.drawIsoCube(20, 40, 80, 13, 15, 11);
-        p.drawRect(40, 60, 20, 2, 0); // "X" marks the spot
+        p.drawIsoCube(20, 45, 85, 14, 15, 12);
+        p.drawTexture(30, 55, 65, 65, 'WOOD');
+        p.drawRect(45, 65, 25, 3, 0);
     }
     return p.toPng();
 }
@@ -291,12 +369,18 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             desc: "L'alba rischiara una foresta antica. Senti il richiamo dell'ignoto.",
             options: ["Vai a Nord (Quercia)", "Vai a Est (Villaggio)", "Aiuto"]
         }),
-        OLD_OAK: (s) => ({
-            image: "OAK",
-            title: "Antica Quercia",
-            desc: "Un albero millenario. Un vecchio cavaliere siede qui stanco.",
-            options: s.flags.met_knight ? ["Parla con Sir Alistair", "Vai a Sud", "Aiuto"] : ["Avvicinati al cavaliere", "Vai a Sud", "Aiuto"]
-        }),
+        OLD_OAK: (s) => {
+            let d = "Un albero millenario dalle radici profonde. Un vecchio cavaliere siede qui stanco, la sua armatura è opaca.";
+            if (s.inventory.includes("Amuleto") || s.inventory.includes("Amulet")) {
+                d = "Il Cavaliere si alza vedendo l'Amuleto. 'L'hai trovato! Corri alla Torre, il tempo stringe!'";
+            }
+            return {
+                image: "OAK",
+                title: "Antica Quercia",
+                desc: d,
+                options: s.flags.met_knight ? ["Parla con Sir Alistair", "Vai a Sud", "Aiuto"] : ["Avvicinati al cavaliere", "Vai a Sud", "Aiuto"]
+            };
+        },
         VILLAGE_GATE: () => ({
             image: "GATE",
             title: "Porta di Oakhaven",
@@ -363,11 +447,11 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             desc: "Antiche mura di pietra. I cancelli sono socchiusi e cigolano nel vento.",
             options: ["Entra nel Salone", "Torna alla montagna", "Aiuto"]
         }),
-        CASTLE_HALL: (_s) => ({
+        CASTLE_HALL: (s) => ({
             image: "HALL",
             title: "Grande Salone",
-            desc: "Arazzi polverosi e armature silenziose. Senti un'energia magica nell'aria.",
-            options: ["Cerca indizi", "Esci", "Aiuto"]
+            desc: s.inventory.includes("Amuleto") ? "Il salone risplende alla luce dell'Amuleto. Il passaggio per la Torre è rivelato." : "Arazzi polverosi e armature silenziose. Senti un'energia magica nell'aria.",
+            options: s.inventory.includes("Amuleto") ? ["Sali alla Torre", "Esci", "Aiuto"] : ["Cerca indizi", "Esci", "Aiuto"]
         }),
         DRAGON_TOWER: (s) => ({
             image: s.flags.dragon_dead ? "TOWER" : "DRAGON",
@@ -391,12 +475,18 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             desc: "Dawn breaks over an ancient forest. You feel the call of the unknown.",
             options: ["Go North (Oak)", "Go East (Village)", "Help"]
         }),
-        OLD_OAK: (s) => ({
-            image: "OAK",
-            title: "Old Oak",
-            desc: "A thousand-year-old tree. A tired old knight sits here.",
-            options: s.flags.met_knight ? ["Speak with Sir Alistair", "Go South", "Help"] : ["Approach the knight", "Go South", "Help"]
-        }),
+        OLD_OAK: (s) => {
+            let d = "A thousand-year-old tree with deep roots. A tired old knight sits here, his armor is dull.";
+            if (s.inventory.includes("Amulet") || s.inventory.includes("Amuleto")) {
+                d = "The Knight stands up seeing the Amulet. 'You found it! Hurry to the Tower, time is short!'";
+            }
+            return {
+                image: "OAK",
+                title: "Old Oak",
+                desc: d,
+                options: s.flags.met_knight ? ["Speak with Sir Alistair", "Go South", "Help"] : ["Approach the knight", "Go South", "Help"]
+            };
+        },
         VILLAGE_GATE: () => ({
             image: "GATE",
             title: "Oakhaven Gate",
@@ -463,11 +553,11 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             desc: "Ancient stone walls. The gates are ajar and creaking in the wind.",
             options: ["Enter the Hall", "Back to mountain", "Help"]
         }),
-        CASTLE_HALL: (_s) => ({
+        CASTLE_HALL: (s) => ({
             image: "HALL",
             title: "Great Hall",
-            desc: "Dusty tapestries and silent armor. You feel magical energy in the air.",
-            options: ["Search for clues", "Exit", "Help"]
+            desc: s.inventory.includes("Amulet") ? "The hall glows with the Amulet's light. The path to the Tower is revealed." : "Dusty tapestries and silent armor. You feel magical energy in the air.",
+            options: s.inventory.includes("Amulet") ? ["Climb to Tower", "Exit", "Help"] : ["Search for clues", "Exit", "Help"]
         }),
         DRAGON_TOWER: (s) => ({
             image: s.flags.dragon_dead ? "TOWER" : "DRAGON",
@@ -522,7 +612,7 @@ const even = {
                     containerTotalNum: 3,
                     textObject: [
                         new TextContainerProperty({ ...DEFAULT_TEXT_PROPS, containerID: 0, xPosition: 40, yPosition: 16, width: 496, height: 56, content: title }),
-                        new TextContainerProperty({ ...DEFAULT_TEXT_PROPS, containerID: 1, xPosition: 200, yPosition: 80, width: 336, height: 192, content: desc, isEventCapture: 1 })
+                        new TextContainerProperty({ ...DEFAULT_TEXT_PROPS, containerID: 1, xPosition: 208, yPosition: 80, width: 328, height: 192, content: desc, isEventCapture: 1 })
                     ],
                     imageObject: [
                         new ImageContainerProperty({ containerID: 2, xPosition: 40, yPosition: 80, width: 144, height: 144 })
@@ -762,7 +852,9 @@ function onSelect(): boolean {
                     gameState.tempMsg = IT ? "Salute ripristinata!" : "Health restored!";
                 } else if (gameState.cursor === 1) gameState.room = 'MOUNTAIN_BASE';
             } else if (gameState.room === 'MOUNTAIN_BASE') {
-                if (gameState.cursor === 0) gameState.room = 'DRAGON_TOWER';
+                if (gameState.cursor === 0) {
+                    gameState.tempMsg = IT ? "La torre è troppo liscia per essere scalata senza attrezzi." : "The tower is too smooth to climb without gear.";
+                }
                 else if (gameState.cursor === 1) gameState.room = 'CASTLE_GATES';
                 else if (gameState.cursor === 2) gameState.room = 'HIDDEN_LAKE';
             } else if (gameState.room === 'CASTLE_GATES') {
@@ -775,7 +867,7 @@ function onSelect(): boolean {
                         gameState.inventory.push(amulet);
                         gameState.tempMsg = IT ? "Hai trovato l'Amuleto dell'Alba!" : "You found the Dawn Amulet!";
                     } else {
-                        gameState.tempMsg = IT ? "Il salone è vuoto." : "The hall is empty.";
+                        gameState.room = 'DRAGON_TOWER';
                     }
                 } else if (gameState.cursor === 1) gameState.room = 'CASTLE_GATES';
             } else if (gameState.room === 'DRAGON_TOWER') {
@@ -826,6 +918,7 @@ async function init() {
     _bridge = await waitForEvenAppBridge();
     updateStatus("Connected!");
 
+    // Clear session for testing if needed, or load persistent data
     try {
         const lang = await _bridge.getLocalStorage('g2_lang');
         const name = await _bridge.getLocalStorage('g2_name');

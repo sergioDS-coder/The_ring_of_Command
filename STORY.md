@@ -65,7 +65,15 @@
 - **IT:** Arazzi polverosi. Qui trovi l'**Amuleto dell'Alba**, essenziale per proteggerti dal drago.
 - **EN:** Dusty tapestries. Here you find the **Dawn Amulet**, essential for protecting yourself from the dragon.
 
-### 15. Torre del Drago / Dragon Tower
+### 15. Bosco degli Elfi / Elf Grove
+- **IT:** Luce argentea tra i rami. Un'elfa custode ti osserva. Guadagna la sua fiducia per trovare la Strega.
+- **EN:** Silvery light between branches. An elf guardian watches you. Gain her trust to find the Witch.
+
+### 16. Capanna della Strega / Witch's Hut
+- **IT:** Una capanna magica. La Strega Elara ti svelerà il segreto del Castello se rispetti il suo focolare.
+- **EN:** A magical hut. Witch Elara will reveal the Castle's secret if you respect her hearth.
+
+### 17. Torre del Drago / Dragon Tower
 - **IT:** Un Drago Sputafuoco sorveglia l'ingresso. Il calore è insopportabile. Senza spada o coraggio, il destino è segnato.
 - **EN:** A fire-breathing Dragon guards the entrance. Heat is unbearable. Without a sword or courage, your fate is sealed.
 
