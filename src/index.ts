@@ -67,15 +67,32 @@ class Painter {
     }
 
     drawTriangle(x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, color: number) {
-        // Simple bounding box filling
-        const minX = Math.min(x1, x2, x3), maxX = Math.max(x1, x2, x3);
-        const minY = Math.min(y1, y2, y3), maxY = Math.max(y1, y2, y3);
+        const minX = Math.floor(Math.min(x1, x2, x3)), maxX = Math.ceil(Math.max(x1, x2, x3));
+        const minY = Math.floor(Math.min(y1, y2, y3)), maxY = Math.ceil(Math.max(y1, y2, y3));
         for (let x = minX; x <= maxX; x++) {
             for (let y = minY; y <= maxY; y++) {
                 const b1 = (x - x2) * (y1 - y2) - (x1 - x2) * (y - y2) < 0;
                 const b2 = (x - x3) * (y2 - y3) - (x2 - x3) * (y - y3) < 0;
                 const b3 = (x - x1) * (y3 - y1) - (x3 - x1) * (y - y1) < 0;
                 if ((b1 === b2) && (b2 === b3)) this.setPixel(x, y, color);
+            }
+        }
+    }
+
+    drawDitheredRect(x: number, y: number, w: number, h: number, color1: number, color2: number) {
+        for (let i = x; i < x + w; i++) {
+            for (let j = y; j < y + h; j++) {
+                this.setPixel(i, j, (i + j) % 2 === 0 ? color1 : color2);
+            }
+        }
+    }
+
+    drawGradient(x: number, y: number, w: number, h: number, colorTop: number, colorBottom: number) {
+        for (let j = y; j < y + h; j++) {
+            const ratio = (j - y) / h;
+            const color = Math.floor(colorTop + (colorBottom - colorTop) * ratio);
+            for (let i = x; i < x + w; i++) {
+                this.setPixel(i, j, color);
             }
         }
     }
@@ -103,89 +120,109 @@ class Painter {
 function generateProceduralImage(type: string): string {
     const p = new Painter(144, 144);
     if (type === 'MENU') {
-        for (let i = 0; i < 144; i += 8) p.drawRect(i, 0, 1, 144, 2);
-        for (let i = 0; i < 144; i += 8) p.drawRect(0, i, 144, 1, 2);
-        p.drawRect(20, 20, 104, 104, 1, true);
+        p.drawGradient(0, 0, 144, 144, 1, 4);
+        p.drawRect(20, 20, 104, 104, 15, false);
+        p.drawCircle(72, 72, 30, 10, false);
     } else if (type === 'FOREST') {
-        p.drawRect(0, 100, 144, 44, 2); // Ground
-        for (let i = 10; i < 144; i += 30) {
-            p.drawTriangle(i, 110, i + 15, 40, i + 30, 110, 5); // Trees
-            p.drawRect(i + 12, 110, 6, 20, 3); // Trunks
+        p.drawGradient(0, 0, 144, 100, 1, 0); // Sky
+        for (let i = -20; i < 160; i += 25) {
+            p.drawTriangle(i, 110, i + 20, 30, i + 40, 110, 3); // Back trees
         }
+        for (let i = -10; i < 150; i += 35) {
+            p.drawTriangle(i, 120, i + 25, 50, i + 50, 120, 6); // Front trees
+            p.drawRect(i + 20, 110, 10, 25, 2); // Trunks
+        }
+        p.drawDitheredRect(0, 120, 144, 24, 4, 2); // Grass
     } else if (type === 'OAK') {
-        p.drawRect(64, 80, 16, 60, 4); // Trunk
-        p.drawCircle(72, 60, 45, 8); // Canopy
-        p.drawCircle(60, 50, 10, 10); // Detail
-        p.drawCircle(85, 55, 8, 10);
+        p.drawGradient(0, 0, 144, 144, 2, 0);
+        p.drawRect(60, 70, 24, 74, 3); // Trunk
+        for (let i = 0; i < 5; i++) {
+            p.drawCircle(72 + (Math.random()-0.5)*60, 50 + (Math.random()-0.5)*50, 25, 7 + Math.floor(Math.random()*4));
+        }
     } else if (type === 'GATE') {
-        p.drawRect(20, 40, 104, 104, 6); // Wall
-        p.drawRect(40, 60, 64, 84, 0); // Arch
-        for (let i = 20; i < 124; i += 10) p.drawRect(i, 40, 1, 104, 8); // Bricks
+        p.drawDitheredRect(0, 0, 144, 144, 5, 3); // Stones
+        p.drawRect(35, 50, 74, 94, 0); // Passage
+        p.drawCircle(72, 50, 37, 0); // Arch top
+        for (let i = 0; i < 144; i += 20) p.drawRect(0, i, 144, 2, 1); // Mortar
     } else if (type === 'TAVERN') {
-        p.drawRect(10, 40, 124, 104, 4); // Building
-        p.drawRect(30, 10, 84, 30, 8); // Roof
-        p.drawRect(60, 90, 24, 54, 2); // Door
-        p.drawRect(30, 60, 20, 20, 12); // Window
+        p.drawRect(20, 50, 104, 94, 5);
+        p.drawTriangle(10, 50, 72, 10, 134, 50, 2); // Roof
+        p.drawRect(60, 100, 24, 44, 1); // Door
+        p.drawDitheredRect(35, 70, 20, 20, 15, 10); // Window L
+        p.drawDitheredRect(89, 70, 20, 20, 15, 10); // Window R
     } else if (type === 'FORGE') {
-        p.drawRect(0, 0, 144, 144, 1);
-        p.drawCircle(72, 100, 40, 3); // Furnace
-        p.drawCircle(72, 100, 25, 14); // Fire
+        p.drawGradient(0, 0, 144, 144, 2, 0);
+        p.drawRect(30, 80, 84, 64, 4); // Anvil base
+        p.drawRect(20, 60, 104, 20, 6); // Anvil top
+        p.drawCircle(72, 120, 30, 15); // Heat glow
     } else if (type === 'BRIDGE') {
-        p.drawRect(0, 80, 144, 30, 6); // Bridge side
-        for (let i = 0; i < 144; i += 20) p.drawRect(i, 80, 5, 64, 4); // Pillars
+        p.drawGradient(0, 0, 144, 100, 1, 4); // Sky/Water
+        p.drawRect(0, 80, 144, 20, 7); // Road
+        p.drawCircle(30, 100, 40, 0); // Arch 1
+        p.drawCircle(114, 100, 40, 0); // Arch 2
     } else if (type === 'CAVE') {
-        p.drawRect(0, 0, 144, 144, 2);
-        p.drawCircle(72, 144, 100, 0); // Entrance
-        for (let i = 0; i < 10; i++) p.drawCircle(Math.random()*144, Math.random()*144, 2, 8); // Rocks
+        p.drawRect(0, 0, 144, 144, 1);
+        p.drawCircle(72, 160, 130, 0); // Mouth
+        for (let i = 0; i < 144; i += 15) {
+            p.drawTriangle(i, 0, i + 7, 30 + Math.random()*20, i + 15, 0, 4); // Stalactites
+        }
     } else if (type === 'MOUNTAIN') {
-        p.drawTriangle(0, 144, 72, 20, 144, 144, 4); // Main peak
-        p.drawTriangle(72, 20, 60, 40, 84, 40, 15); // Snow cap
+        p.drawGradient(0, 0, 144, 144, 2, 5);
+        p.drawTriangle(10, 144, 72, 20, 134, 144, 3);
+        p.drawTriangle(72, 20, 50, 50, 94, 50, 15); // Snow
     } else if (type === 'TOWER') {
-        p.drawRect(50, 20, 44, 124, 7); // Main tower
-        p.drawRect(45, 10, 54, 15, 9); // Battlement
-        p.drawRect(65, 40, 14, 20, 0); // Window
+        p.drawGradient(0, 0, 144, 144, 1, 0);
+        p.drawRect(50, 30, 44, 114, 6);
+        p.drawDitheredRect(45, 15, 54, 20, 8, 4); // Battlements
     } else if (type === 'THRONE') {
-        p.drawRect(40, 60, 64, 84, 8); // Throne back
-        p.drawRect(40, 110, 64, 34, 6); // Seat
-        p.drawRect(30, 100, 10, 44, 10); // Armrest
-        p.drawRect(104, 100, 10, 44, 10);
+        p.drawGradient(0, 0, 144, 144, 4, 1);
+        p.drawRect(45, 40, 54, 104, 13); // Throne gold
+        p.drawRect(50, 50, 44, 84, 2); // Cushion
+        p.drawCircle(72, 35, 15, 14); // Royal emblem
     } else if (type === 'SKULL') {
-        p.drawCircle(72, 72, 40, 15); // Head
-        p.drawCircle(55, 65, 10, 0); // Eye L
-        p.drawCircle(89, 65, 10, 0); // Eye R
-        p.drawRect(62, 100, 20, 15, 12); // Teeth
+        p.drawCircle(72, 72, 50, 15);
+        p.drawCircle(50, 60, 12, 0);
+        p.drawCircle(94, 60, 12, 0);
+        p.drawTriangle(72, 80, 65, 95, 79, 95, 0); // Nose
+        p.drawRect(55, 105, 34, 10, 0); // Mouth
     } else if (type === 'CROWN') {
-        p.drawRect(30, 60, 84, 30, 15); // Base
-        p.drawTriangle(30, 60, 45, 30, 60, 60, 15); // Point 1
-        p.drawTriangle(60, 60, 72, 20, 84, 60, 15); // Point 2
-        p.drawTriangle(84, 60, 99, 30, 114, 60, 15); // Point 3
+        p.drawGradient(0, 0, 144, 144, 0, 3);
+        p.drawRect(30, 70, 84, 30, 15);
+        p.drawTriangle(30, 70, 45, 30, 60, 70, 15);
+        p.drawTriangle(60, 70, 72, 20, 84, 70, 15);
+        p.drawTriangle(84, 70, 99, 30, 114, 70, 15);
+        p.drawCircle(72, 85, 5, 10); // Jewel
     } else if (type === 'SWORD') {
-        p.drawRect(70, 20, 4, 100, 12); // Blade
-        p.drawRect(52, 100, 40, 4, 8); // Crossguard
-        p.drawRect(68, 110, 8, 24, 4); // Handle
-        p.drawCircle(72, 134, 6, 10); // Pommel
+        p.drawGradient(0, 0, 144, 144, 1, 0);
+        p.drawTriangle(72, 10, 67, 100, 77, 100, 13); // Blade
+        p.drawRect(40, 100, 64, 6, 8); // Guard
+        p.drawRect(68, 106, 8, 25, 5); // Grip
+        p.drawCircle(72, 135, 8, 9); // Pommel
     } else if (type === 'POTION') {
-        p.drawCircle(72, 100, 35, 6); // Bottle
-        p.drawRect(72 - 35, 100, 70, 35, 14); // Liquid
-        p.drawRect(64, 40, 16, 30, 4); // Neck
+        p.drawCircle(72, 90, 40, 10, false); // Bottle glass
+        p.drawCircle(72, 95, 33, 14); // Liquid
+        p.drawRect(65, 25, 14, 30, 10); // Neck
+        p.drawRect(60, 20, 24, 8, 4); // Cork
     } else if (type === 'ORC') {
-        p.drawCircle(72, 60, 30, 4); // Head
-        p.drawRect(40, 90, 64, 54, 2); // Body
-        p.drawRect(50, 50, 10, 5, 15); // Tusk L
-        p.drawRect(84, 50, 10, 5, 15); // Tusk R
+        p.drawCircle(72, 55, 35, 4); // Face
+        p.drawCircle(55, 50, 6, 15); // Eye L
+        p.drawCircle(89, 50, 6, 15); // Eye R
+        p.drawTriangle(50, 60, 40, 40, 60, 60, 15); // Tusk L
+        p.drawTriangle(94, 60, 104, 40, 84, 60, 15); // Tusk R
     } else if (type === 'DRAGON') {
-        p.drawTriangle(10, 72, 72, 20, 134, 72, 9); // Wings
-        p.drawCircle(72, 80, 40, 12); // Body
-        p.drawCircle(100, 60, 15, 6); // Head
-        p.drawTriangle(115, 60, 140, 50, 140, 70, 14); // Fire
+        p.drawTriangle(10, 80, 72, 10, 134, 80, 2); // Wings
+        p.drawCircle(72, 90, 45, 6); // Scales
+        p.drawCircle(110, 50, 20, 8); // Head
+        p.drawTriangle(125, 50, 160, 30, 160, 70, 14); // Breath
     } else if (type === 'PRINCESS') {
-        p.drawTriangle(42, 144, 72, 60, 102, 144, 10); // Dress
-        p.drawCircle(72, 50, 20, 14); // Head
-        p.drawTriangle(62, 35, 72, 15, 82, 35, 15); // Crown
+        p.drawTriangle(30, 144, 72, 50, 114, 144, 11); // Gown
+        p.drawCircle(72, 45, 22, 13); // Face
+        p.drawRect(55, 35, 34, 10, 1); // Hair
+        p.drawTriangle(65, 30, 72, 10, 79, 30, 15); // Crown
     } else if (type === 'MAP') {
-        p.drawRect(20, 20, 104, 104, 13); // Paper
-        p.drawRect(25, 25, 94, 94, 0, false); // Border
-        p.drawRect(40, 60, 60, 2, 0); // Path
+        p.drawDitheredRect(20, 20, 104, 104, 13, 12);
+        p.drawRect(30, 30, 84, 84, 0, false);
+        p.drawTriangle(72, 72, 80, 85, 64, 85, 0); // "X" marks the spot
     }
     return p.toPng();
 }
@@ -311,11 +348,13 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             desc: s.flags.dragon_dead ? "Le fiamme si sono spente. Il drago è caduto." : "Un Drago Sputafuoco sorveglia l'ingresso. Il calore è insopportabile.",
             options: s.flags.dragon_dead ? ["Entra nella stanza", "Torna giù", "Aiuto"] : ["Sfida il Drago", "Usa la pozione", "Torna giù", "Aiuto"]
         }),
-        THRONE_ROOM: () => ({
+        THRONE_ROOM: (s) => ({
             image: "PRINCESS",
-            title: "Sala del Trono",
-            desc: "La Principessa è incatenata al trono. Ti guarda con speranza.",
-            options: ["Libera la Principessa", "Esamina tesori", "Aiuto"]
+            title: s.flags.rescued ? "Vittoria!" : "Sala del Trono",
+            desc: s.flags.rescued
+                ? "Le catene sono spezzate. La Principessa Lyra è finalmente libera e il male è stato scacciato dalle G2 Chronicles."
+                : "La Principessa Lyra è incatenata al trono di ossidiana. Il Drago è caduto, ma solo il tuo tocco può liberarla.",
+            options: s.flags.rescued ? ["Concludi la leggenda", "Aiuto"] : ["Spezza le catene", "Esamina la stanza", "Aiuto"]
         })
     },
     EN: {
@@ -385,11 +424,13 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             desc: s.flags.dragon_dead ? "The flames have died out. The dragon has fallen." : "A fire-breathing Dragon guards the entrance. Heat is unbearable.",
             options: s.flags.dragon_dead ? ["Enter the room", "Go down", "Help"] : ["Challenge Dragon", "Use potion", "Go down", "Help"]
         }),
-        THRONE_ROOM: () => ({
+        THRONE_ROOM: (s) => ({
             image: "PRINCESS",
-            title: "Throne Room",
-            desc: "The Princess is chained to the throne. She looks at you with hope.",
-            options: ["Free the Princess", "Examine treasures", "Help"]
+            title: s.flags.rescued ? "Victory!" : "Throne Room",
+            desc: s.flags.rescued
+                ? "The chains are broken. Princess Lyra is finally free, and evil has been banished from the G2 Chronicles."
+                : "Princess Lyra is chained to the obsidian throne. The Dragon has fallen, but only your touch can free her.",
+            options: s.flags.rescued ? ["Finish the Legend", "Help"] : ["Break the chains", "Examine room", "Help"]
         })
     }
 };
@@ -487,7 +528,14 @@ function getDescription() {
     }
     if (gameState.phase === 'LANG') return (gameState.lang === 'IT' ? "Seleziona Lingua" : "Select Language") + "\n\n" + (gameState.cursor === 0 ? "> ITALIANO" : "  ITALIANO") + "\n" + (gameState.cursor === 1 ? "> ENGLISH" : "  ENGLISH");
     if (gameState.phase === 'NAME') return (gameState.lang === 'IT' ? "Scorri per cambiare lettera.\nSeleziona '_' per confermare." : "Scroll to change letter.\nSelect '_' to confirm.");
-    if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') return (gameState.phase === 'DEAD' ? (gameState.lang === 'IT' ? "La tua avventura finisce qui." : "Adventure ends here.") : (gameState.lang === 'IT' ? "Mondo salvo!" : "World saved!")) + (gameState.lang === 'IT' ? "\n\n> Ricomincia" : "\n\n> Restart");
+    if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') {
+        const IT = gameState.lang === 'IT';
+        if (gameState.phase === 'DEAD') {
+            return (IT ? "La tua avventura finisce qui. Le tenebre avvolgono il regno." : "Your adventure ends here. Darkness envelops the realm.") + (IT ? "\n\n> Ricomincia" : "\n\n> Restart");
+        } else {
+            return (IT ? "Hai liberato la Principessa e sconfitto il male! Il popolo di Oakhaven canterà le tue lodi per secoli.\nSei il leggendario Eroe delle G2 Chronicles." : "You freed the Princess and defeated the evil! The people of Oakhaven will sing your praises for centuries.\nYou are the legendary G2 Chronicles Hero.") + (IT ? "\n\n> Nuovo Gioco" : "\n\n> New Game");
+        }
+    }
     const room = ROOMS[gameState.lang][gameState.room](gameState);
     let d = (gameState.tempMsg ? gameState.tempMsg + "\n\n" : "") + room.desc + "\n\nHP: " + gameState.hp;
     if (gameState.inventory.length > 0) d += "\nInv: " + gameState.inventory.join(", ");
@@ -662,8 +710,15 @@ function onSelect(): boolean {
                 }
             } else if (gameState.room === 'THRONE_ROOM') {
                 if (gameState.cursor === 0) {
-                    gameState.phase = 'WIN';
-                    needsRebuild = true;
+                    if (!gameState.flags.rescued) {
+                        gameState.flags.rescued = true;
+                        gameState.tempMsg = IT ? "Le catene si spezzano!" : "The chains shatter!";
+                    } else {
+                        gameState.phase = 'WIN';
+                        needsRebuild = true;
+                    }
+                } else if (gameState.cursor === 1 && !gameState.flags.rescued) {
+                    gameState.tempMsg = IT ? "Vedi oro e antichi arazzi." : "You see gold and ancient tapestries.";
                 }
             }
 
