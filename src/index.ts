@@ -244,6 +244,10 @@ const IMAGES: Record<string, string> = {
     CROWN: generateProceduralImage('CROWN'),
     MENU: generateProceduralImage('MENU'),
     SWORD: generateProceduralImage('SWORD'),
+    ELF: generateProceduralImage('ELF'),
+    WITCH: generateProceduralImage('WITCH'),
+    CASTLE: generateProceduralImage('CASTLE'),
+    HALL: generateProceduralImage('HALL'),
     POTION: generateProceduralImage('POTION'),
     ORC: generateProceduralImage('ORC'),
     DRAGON: generateProceduralImage('DRAGON'),
@@ -262,8 +266,8 @@ const updateStatus = (status: string) => {
 type Language = 'IT' | 'EN';
 type Room =
     'FOREST_EDGE' | 'OLD_OAK' | 'VILLAGE_GATE' | 'TAVERN' | 'BLACKSMITH' |
-    'MISTY_PATH' | 'ORC_BRIDGE' | 'DARK_CAVE' | 'HIDDEN_LAKE' |
-    'MOUNTAIN_BASE' | 'DRAGON_TOWER' | 'THRONE_ROOM';
+    'MISTY_PATH' | 'ELF_GROVE' | 'WITCH_HUT' | 'ORC_BRIDGE' | 'DARK_CAVE' | 'HIDDEN_LAKE' |
+    'MOUNTAIN_BASE' | 'CASTLE_GATES' | 'CASTLE_HALL' | 'DRAGON_TOWER' | 'THRONE_ROOM';
 
 interface GameState {
     phase: 'MENU' | 'LANG' | 'NAME' | 'PLAY' | 'DEAD' | 'WIN';
@@ -297,7 +301,7 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             image: "GATE",
             title: "Porta di Oakhaven",
             desc: "Un ridente villaggio. Gli abitanti sembrano preoccupati per le voci di un drago.",
-            options: ["Entra nella Locanda", "Visita il Fabbro", "Vai a Ovest", "Aiuto"]
+            options: ["Entra nella Locanda", "Visita il Fabbro", "Vai a Nord (Sentiero)", "Vai a Ovest", "Aiuto"]
         }),
         TAVERN: (s) => ({
             image: s.flags.got_map ? "TAVERN" : "MAP",
@@ -315,7 +319,19 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             image: "PATH",
             title: "Sentiero Nebbioso",
             desc: "La visibilità è scarsa. Senti dei grugniti in lontananza.",
-            options: ["Prosegui a Nord", "Torna al Villaggio", "Aiuto"]
+            options: ["Vai a Nord (Ponte)", "Vai a Ovest (Bosco Elfi)", "Torna al Villaggio", "Aiuto"]
+        }),
+        ELF_GROVE: (s) => ({
+            image: "ELF",
+            title: "Bosco degli Elfi",
+            desc: "Luce argentea tra i rami. Un'elfa custode ti osserva con sospetto.",
+            options: s.flags.elf_trust ? ["Chiedi della Strega", "Torna al Sentiero", "Aiuto"] : ["Saluta l'Elfa", "Torna al Sentiero", "Aiuto"]
+        }),
+        WITCH_HUT: (s) => ({
+            image: "WITCH",
+            title: "Capanna della Strega",
+            desc: "Fumo viola esce dal camino. Una strega sta mescolando un calderone gorgogliante.",
+            options: s.flags.witch_met ? ["Chiedi del Castello", "Esci", "Aiuto"] : ["Entra con cautela", "Torna al bosco", "Aiuto"]
         }),
         ORC_BRIDGE: (s) => ({
             image: s.flags.orc_dead ? "BRIDGE" : "ORC",
@@ -338,8 +354,20 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
         MOUNTAIN_BASE: () => ({
             image: "MOUNTAIN",
             title: "Piedi della Montagna",
-            desc: "Il vento ulula. Sopra di te svetta la torre del drago.",
-            options: ["Scala la torre", "Torna al lago", "Aiuto"]
+            desc: "Il vento ulula. A Est vedi le mura di un castello in rovina.",
+            options: ["Scala la torre", "Vai al Castello", "Torna al lago", "Aiuto"]
+        }),
+        CASTLE_GATES: (_s) => ({
+            image: "CASTLE",
+            title: "Cancelli del Castello",
+            desc: "Antiche mura di pietra. I cancelli sono socchiusi e cigolano nel vento.",
+            options: ["Entra nel Salone", "Torna alla montagna", "Aiuto"]
+        }),
+        CASTLE_HALL: (_s) => ({
+            image: "HALL",
+            title: "Grande Salone",
+            desc: "Arazzi polverosi e armature silenziose. Senti un'energia magica nell'aria.",
+            options: ["Cerca indizi", "Esci", "Aiuto"]
         }),
         DRAGON_TOWER: (s) => ({
             image: s.flags.dragon_dead ? "TOWER" : "DRAGON",
@@ -373,7 +401,7 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             image: "GATE",
             title: "Oakhaven Gate",
             desc: "A peaceful village. Residents seem worried about dragon rumors.",
-            options: ["Enter the Tavern", "Visit Blacksmith", "Go West", "Help"]
+            options: ["Enter the Tavern", "Visit Blacksmith", "Go North (Path)", "Go West", "Help"]
         }),
         TAVERN: (s) => ({
             image: s.flags.got_map ? "TAVERN" : "MAP",
@@ -391,7 +419,19 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
             image: "PATH",
             title: "Misty Path",
             desc: "Visibility is low. You hear grunts in the distance.",
-            options: ["Proceed North", "Back to Village", "Help"]
+            options: ["Go North (Bridge)", "Go West (Elf Grove)", "Back to Village", "Help"]
+        }),
+        ELF_GROVE: (s) => ({
+            image: "ELF",
+            title: "Elf Grove",
+            desc: "Silvery light between branches. An elf guardian watches you suspiciously.",
+            options: s.flags.elf_trust ? ["Ask about Witch", "Back to Path", "Help"] : ["Greet the Elf", "Back to Path", "Help"]
+        }),
+        WITCH_HUT: (s) => ({
+            image: "WITCH",
+            title: "Witch's Hut",
+            desc: "Purple smoke rises from the chimney. A witch is stirring a bubbling cauldron.",
+            options: s.flags.witch_met ? ["Ask about Castle", "Exit", "Help"] : ["Enter cautiously", "Back to grove", "Help"]
         }),
         ORC_BRIDGE: (s) => ({
             image: s.flags.orc_dead ? "BRIDGE" : "ORC",
@@ -414,8 +454,20 @@ const ROOMS: Record<Language, Record<Room, (state: GameState) => { title: string
         MOUNTAIN_BASE: () => ({
             image: "MOUNTAIN",
             title: "Mountain Base",
-            desc: "Wind howls. Above you looms the dragon's tower.",
-            options: ["Climb the tower", "Back to lake", "Help"]
+            desc: "Wind howls. To the East you see the walls of a ruined castle.",
+            options: ["Climb the tower", "Go to Castle", "Back to lake", "Help"]
+        }),
+        CASTLE_GATES: (_s) => ({
+            image: "CASTLE",
+            title: "Castle Gates",
+            desc: "Ancient stone walls. The gates are ajar and creaking in the wind.",
+            options: ["Enter the Hall", "Back to mountain", "Help"]
+        }),
+        CASTLE_HALL: (_s) => ({
+            image: "HALL",
+            title: "Great Hall",
+            desc: "Dusty tapestries and silent armor. You feel magical energy in the air.",
+            options: ["Search for clues", "Exit", "Help"]
         }),
         DRAGON_TOWER: (s) => ({
             image: s.flags.dragon_dead ? "TOWER" : "DRAGON",
@@ -630,7 +682,8 @@ function onSelect(): boolean {
             } else if (gameState.room === 'VILLAGE_GATE') {
                 if (gameState.cursor === 0) gameState.room = 'TAVERN';
                 else if (gameState.cursor === 1) gameState.room = 'BLACKSMITH';
-                else if (gameState.cursor === 2) gameState.room = 'FOREST_EDGE';
+                else if (gameState.cursor === 2) gameState.room = 'MISTY_PATH';
+                else if (gameState.cursor === 3) gameState.room = 'FOREST_EDGE';
             } else if (gameState.room === 'TAVERN') {
                 if (gameState.cursor === 0) {
                     if (!gameState.flags.got_map) {
@@ -650,7 +703,26 @@ function onSelect(): boolean {
                 } else if (gameState.cursor === 1) gameState.room = 'VILLAGE_GATE';
             } else if (gameState.room === 'MISTY_PATH') {
                 if (gameState.cursor === 0) gameState.room = 'ORC_BRIDGE';
-                else if (gameState.cursor === 1) gameState.room = 'VILLAGE_GATE';
+                else if (gameState.cursor === 1) gameState.room = 'ELF_GROVE';
+                else if (gameState.cursor === 2) gameState.room = 'VILLAGE_GATE';
+            } else if (gameState.room === 'ELF_GROVE') {
+                if (gameState.cursor === 0) {
+                    if (!gameState.flags.elf_trust) {
+                        gameState.flags.elf_trust = true;
+                        gameState.tempMsg = IT ? "'Non molti umani visitano il nostro bosco...'" : "'Not many humans visit our grove...'";
+                    } else {
+                        gameState.room = 'WITCH_HUT';
+                    }
+                } else if (gameState.cursor === 1) gameState.room = 'MISTY_PATH';
+            } else if (gameState.room === 'WITCH_HUT') {
+                if (gameState.cursor === 0) {
+                    if (!gameState.flags.witch_met) {
+                        gameState.flags.witch_met = true;
+                        gameState.tempMsg = IT ? "La strega sorride: 'Il castello nasconde segreti...'" : "The witch smiles: 'The castle hides secrets...'";
+                    } else {
+                        gameState.tempMsg = IT ? "'Cerca nel castello l'Amuleto.'" : "'Search the castle for the Amulet.'";
+                    }
+                } else if (gameState.cursor === 1) gameState.room = 'ELF_GROVE';
             } else if (gameState.room === 'ORC_BRIDGE') {
                 if (gameState.flags.orc_dead) {
                     if (gameState.cursor === 0) gameState.room = 'DARK_CAVE';
@@ -691,7 +763,21 @@ function onSelect(): boolean {
                 } else if (gameState.cursor === 1) gameState.room = 'MOUNTAIN_BASE';
             } else if (gameState.room === 'MOUNTAIN_BASE') {
                 if (gameState.cursor === 0) gameState.room = 'DRAGON_TOWER';
-                else if (gameState.cursor === 1) gameState.room = 'HIDDEN_LAKE';
+                else if (gameState.cursor === 1) gameState.room = 'CASTLE_GATES';
+                else if (gameState.cursor === 2) gameState.room = 'HIDDEN_LAKE';
+            } else if (gameState.room === 'CASTLE_GATES') {
+                if (gameState.cursor === 0) gameState.room = 'CASTLE_HALL';
+                else if (gameState.cursor === 1) gameState.room = 'MOUNTAIN_BASE';
+            } else if (gameState.room === 'CASTLE_HALL') {
+                if (gameState.cursor === 0) {
+                    const amulet = IT ? "Amuleto" : "Amulet";
+                    if (!gameState.inventory.includes(amulet)) {
+                        gameState.inventory.push(amulet);
+                        gameState.tempMsg = IT ? "Hai trovato l'Amuleto dell'Alba!" : "You found the Dawn Amulet!";
+                    } else {
+                        gameState.tempMsg = IT ? "Il salone è vuoto." : "The hall is empty.";
+                    }
+                } else if (gameState.cursor === 1) gameState.room = 'CASTLE_GATES';
             } else if (gameState.room === 'DRAGON_TOWER') {
                 if (gameState.flags.dragon_dead) {
                     if (gameState.cursor === 0) gameState.room = 'THRONE_ROOM';

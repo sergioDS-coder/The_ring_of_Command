@@ -30,10 +30,18 @@
 - **EN:** Intense heat. The smith strikes iron with rhythmic force. Here you can forge your **Sword**.
 
 ### 6. Sentiero Nebbioso / Misty Path
-- **IT:** La visibilità è scarsa. Senti dei grugniti in lontananza.
-- **EN:** Visibility is low. You hear grunts in the distance.
+- **IT:** La visibilità è scarsa. Senti dei grugniti in lontananza. Puoi andare al Bosco degli Elfi o al Ponte.
+- **EN:** Visibility is low. You hear grunts in the distance. You can go to the Elf Grove or the Bridge.
 
-### 7. Ponte di Pietra / Stone Bridge
+### 7. Bosco degli Elfi / Elf Grove
+- **IT:** Luce argentea tra i rami. Un'elfa custode ti osserva con sospetto. Se ottieni la sua fiducia, ti guiderà alla Strega.
+- **EN:** Silvery light between branches. An elf guardian watches you suspiciously. If you gain her trust, she will lead you to the Witch.
+
+### 8. Capanna della Strega / Witch's Hut
+- **IT:** Fumo viola esce dal camino. Una strega sta mescolando un calderone. Ti rivela che l'Amuleto dell'Alba è nel castello.
+- **EN:** Purple smoke rises from the chimney. A witch is stirring a cauldron. She reveals that the Dawn Amulet is in the castle.
+
+### 9. Ponte di Pietra / Stone Bridge
 - **IT:** Un enorme Orco blocca il passaggio brandendo una clava nodosa. Devi combatterlo o sgattaiolare oltre.
 - **EN:** A massive Orc blocks the way wielding a gnarled club. You must fight it or sneak past.
 
@@ -45,11 +53,19 @@
 - **IT:** Un'oasi di pace. Un vecchio mercante offre una **Pozione HP** per ripristinare le tue forze.
 - **EN:** An oasis of peace. An old merchant offers an **HP Potion** to restore your strength.
 
-### 10. Piedi della Montagna / Mountain Base
-- **IT:** Il vento ulula. Sopra di te svetta la torre del drago.
-- **EN:** Wind howls. Above you looms the dragon's tower.
+### 12. Piedi della Montagna / Mountain Base
+- **IT:** Il vento ulula. A Est vedi le mura di un castello in rovina.
+- **EN:** Wind howls. To the East you see the walls of a ruined castle.
 
-### 11. Torre del Drago / Dragon Tower
+### 13. Cancelli del Castello / Castle Gates
+- **IT:** Antiche mura di pietra. I cancelli sono socchiusi.
+- **EN:** Ancient stone walls. The gates are ajar.
+
+### 14. Grande Salone / Great Hall
+- **IT:** Arazzi polverosi. Qui trovi l'**Amuleto dell'Alba**, essenziale per proteggerti dal drago.
+- **EN:** Dusty tapestries. Here you find the **Dawn Amulet**, essential for protecting yourself from the dragon.
+
+### 15. Torre del Drago / Dragon Tower
 - **IT:** Un Drago Sputafuoco sorveglia l'ingresso. Il calore è insopportabile. Senza spada o coraggio, il destino è segnato.
 - **EN:** A fire-breathing Dragon guards the entrance. Heat is unbearable. Without a sword or courage, your fate is sealed.
 
