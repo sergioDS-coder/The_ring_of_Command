@@ -7,6 +7,13 @@ import {
   OsEventTypeList,
   StartUpPageCreateResult,
 } from '@evenrealities/even_hub_sdk';
+import {
+  superpowers,
+  getSuperpowerOptions,
+  applyGodMode,
+  getRevealedInventory,
+  type SuperpowerAction,
+} from './plugins/superpowers';
 
 /**
  * THE G2 CHRONICLES
@@ -30,7 +37,7 @@ interface Room {
 
 interface GameState {
   language: Language;
-  stage: 'LANG_SELECT' | 'NAME_SELECT' | 'ADVENTURE' | 'HELP' | 'DEAD' | 'WIN';
+  stage: 'LANG_SELECT' | 'NAME_SELECT' | 'ADVENTURE' | 'HELP' | 'SUPERPOWERS' | 'DEAD' | 'WIN';
   playerName: string;
   room: string;
   hp: number;
@@ -83,7 +90,7 @@ const ROOMS: Record<string, Room> = {
           if (state.inventory.includes("Luce")) {
             move('altar');
           } else {
-            state.hp -= 20;
+            state.hp = applyGodMode(state.hp, 20);
             setMessage("Inciampi nel buio! -20 HP", "You trip in the dark! -20 HP");
             if (state.hp <= 0) state.stage = 'DEAD';
           }
@@ -125,7 +132,7 @@ const ROOMS: Record<string, Room> = {
             state.stage = 'WIN';
           } else {
             setMessage("Non hai nulla che si adatti.", "You have nothing that fits.");
-            state.hp -= 10;
+            state.hp = applyGodMode(state.hp, 10);
             if (state.hp <= 0) state.stage = 'DEAD';
           }
       }},
@@ -192,6 +199,12 @@ function getOptions(): GameOption[] {
   if (state.stage === 'HELP') {
     return [{ label: { it: "Torna", en: "Back" }, onSelect: () => { state.stage = 'ADVENTURE'; } }];
   }
+  if (state.stage === 'SUPERPOWERS') {
+    return getSuperpowerOptions().map(opt => ({
+      label: opt.label,
+      onSelect: () => handleSuperpowerAction(opt.action),
+    }));
+  }
   if (state.stage === 'DEAD' || state.stage === 'WIN') {
     return [{ label: { it: "Ricomincia", en: "Restart" }, onSelect: () => { 
       state.stage = 'LANG_SELECT'; 
@@ -231,6 +244,11 @@ function getFrameContent() {
   } else if (state.stage === 'HELP') {
     title = lang === 'it' ? "AIUTO" : "HELP";
     content = lang === 'it' ? "Anello R1:\n- Scorri: Naviga\n- Click: Conferma\n- Doppio: Aiuto" : "R1 Ring:\n- Scroll: Navigate\n- Click: Confirm\n- Double: Help";
+  } else if (state.stage === 'SUPERPOWERS') {
+    title = "*** SUPERPOWERS ***";
+    content = lang === 'it'
+      ? `Modalità Dio: ${superpowers.godMode ? 'ON' : 'OFF'}\nRivela Tutto: ${superpowers.allItemsRevealed ? 'ON' : 'OFF'}`
+      : `God Mode: ${superpowers.godMode ? 'ON' : 'OFF'}\nReveal All: ${superpowers.allItemsRevealed ? 'ON' : 'OFF'}`;
   } else if (state.stage === 'DEAD') {
     title = lang === 'it' ? "FINE" : "GAME OVER";
     content = lang === 'it' ? "Le tenebre ti hanno consumato." : "The darkness has consumed you.";
@@ -243,6 +261,30 @@ function getFrameContent() {
   content += "\n" + options.map((opt, i) => (i === state.selectedIndex ? `> ${opt.label[lang]}` : `  ${opt.label[lang]}`)).join("\n");
 
   return { title, content };
+}
+
+function handleSuperpowerAction(action: SuperpowerAction) {
+  switch (action) {
+    case 'toggle_god_mode':
+      superpowers.godMode = !superpowers.godMode;
+      break;
+    case 'reveal_all':
+      superpowers.allItemsRevealed = !superpowers.allItemsRevealed;
+      if (superpowers.allItemsRevealed) {
+        state.inventory = getRevealedInventory(state.inventory);
+      }
+      break;
+    case 'full_heal':
+      state.hp = 100;
+      break;
+    case 'full_inventory':
+      state.inventory = getRevealedInventory(state.inventory);
+      break;
+    case 'exit':
+      state.stage = 'ADVENTURE';
+      state.selectedIndex = 0;
+      break;
+  }
 }
 
 // --- SDK Logic & Wrapper ---
@@ -362,6 +404,11 @@ async function start() {
         handleSelect();
       } else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
         state.stage = 'HELP';
+        state.selectedIndex = 0;
+        render();
+      } else if ((type as unknown as string) === 'TRIPLE_CLICK_EVENT') {
+        superpowers.active = true;
+        state.stage = 'SUPERPOWERS';
         state.selectedIndex = 0;
         render();
       }
