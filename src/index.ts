@@ -11,7 +11,16 @@ import {
     EvenHubEvent
 } from '@evenrealities/even_hub_sdk';
 
-// --- Global UI Helpers ---
+/**
+ * THE G2 CHRONICLES: SHADOW OF THE VOID
+ * Optimized RPG Engine for Even Realities G2 Smart Glasses.
+ *
+ * Technical Highlights:
+ * - Dithered 4-bit Procedural Graphics (Bayer 4x4 matrix).
+ * - Diff-based UI updates to maximize battery life.
+ * - Persistent state management (HP, Inventory, Quest Flags).
+ */
+
 declare global {
     interface Window {
         logToUI: (msg: string) => void;
@@ -24,7 +33,7 @@ const DEFAULT_TEXT_PROPS = {
     borderColor: 0,
     borderRadius: 0,
     paddingLength: 0,
-    isEventCapture: 0
+    isEventCapture: 1 // Capture clicks on all containers to fix "stuck" UI
 };
 
 // --- Image Helpers ---
@@ -49,6 +58,18 @@ class Painter {
             for (let j = y; j < y + h; j++) {
                 if (filled || i === x || i === x + w - 1 || j === y || j === y + h - 1) {
                     this.setPixel(i, j, color);
+                }
+            }
+        }
+    }
+
+    drawNoiseDither(x: number, y: number, w: number, h: number, amount: number) {
+        for (let i = x; i < x + w; i++) {
+            for (let j = y; j < y + h; j++) {
+                if (Math.random() < amount) {
+                    const idx = j * this.width + i;
+                    const noise = (Math.random() - 0.5) * 4;
+                    this.data[idx] = Math.max(0, Math.min(15, this.data[idx] + Math.floor(noise)));
                 }
             }
         }
@@ -152,14 +173,19 @@ class Painter {
         this.drawCircle(cx, cy - h, r, colorMain);
     }
 
-    drawShadedCircle(cx: number, cy: number, r: number, colorCenter: number, colorEdge: number) {
-        const r2 = r * r;
+    drawShadedCircle(cx: number, cy: number, r: number, colorCenter: number, colorEdge: number, lightX = -0.5, lightY = -0.5) {
         for (let x = cx - r; x <= cx + r; x++) {
             for (let y = cy - r; y <= cy + r; y++) {
-                const d2 = (x - cx) ** 2 + (y - cy) ** 2;
-                if (d2 <= r2) {
-                    const dist = Math.sqrt(d2) / r;
-                    const exactColor = colorCenter + (colorEdge - colorCenter) * dist;
+                const dx = (x - cx) / r;
+                const dy = (y - cy) / r;
+                const d2 = dx*dx + dy*dy;
+                if (d2 <= 1) {
+                    const dist = Math.sqrt(d2);
+                    // Add directional lighting for "photo-realism"
+                    const dot = (dx * lightX + dy * lightY);
+                    const intensity = Math.max(0, 1 - dist) * (1 + dot);
+
+                    const exactColor = colorEdge + (colorCenter - colorEdge) * intensity;
                     const floorColor = Math.floor(exactColor);
                     const threshold = (exactColor - floorColor) * 16;
                     const bay = Painter.BAYER_4X4[y % 4][x % 4];
@@ -308,10 +334,11 @@ function generateProceduralImage(type: string): string {
         p.drawFog(0.2);
     } else if (type === 'SKULL') {
         p.drawGradient(0, 0, 144, 144, 0, 1);
-        p.drawShadedCircle(72, 72, 50, 10, 2);
+        p.drawShadedCircle(72, 72, 50, 12, 2, -0.6, -0.6);
         p.drawCylinder(72, 120, 20, 20, 8, 4);
         p.drawCircle(55, 65, 12, 0);
         p.drawCircle(89, 65, 12, 0);
+        p.drawNoiseDither(40, 40, 64, 64, 0.2);
         p.drawFog(0.15);
     } else if (type === 'CROWN') {
         p.drawGradient(0, 0, 144, 144, 4, 1);
@@ -323,9 +350,9 @@ function generateProceduralImage(type: string): string {
         p.drawCylinder(72, 135, 6, 35, 5, 2); // Round handle
     } else if (type === 'POTION') {
         p.drawGradient(0, 0, 144, 144, 1, 3);
-        p.drawShadedCircle(72, 110, 40, 12, 4); // Rounder shaded bottle
+        p.drawShadedCircle(72, 110, 40, 12, 4, -0.7, -0.7); // Specular highlight
         p.drawCylinder(72, 80, 12, 30, 8, 4); // Neck
-        p.drawShadedCircle(72, 115, 25, 15, 8); // Glowing liquid core
+        p.drawShadedCircle(72, 115, 25, 15, 8, 0, 0); // Inner glow
     } else if (type === 'ORC') {
         p.drawCylinder(72, 110, 45, 75, 2, 0);
         p.drawCircle(72, 40, 28, 1);
@@ -661,11 +688,31 @@ async function saveGame() {
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 let charIndex = 0;
 
-// --- Requested 'even' wrapper ---
+// --- Optimized UI Engine ---
+let lastTitle = "";
+let lastDesc = "";
+let lastImgKey = "";
+let layoutReady = false;
+
 const even = {
     showCard: async (title: string, desc: string, forceRebuild = false) => {
         if (!_bridge) return;
-        log(`Showing Card: ${title} (rebuild=${forceRebuild})`);
+        if (!layoutReady && !forceRebuild) return;
+
+        // Update Image Key based on phase/room
+        let imgKey = "DEFAULT";
+        if (gameState.phase === 'PLAY') imgKey = ROOMS[gameState.lang][gameState.room](gameState).image;
+        else if (gameState.phase === 'MENU') imgKey = "MENU";
+        else if (gameState.phase === 'DEAD') imgKey = "SKULL";
+        else if (gameState.phase === 'WIN') imgKey = "CROWN";
+
+        // Diff-based optimization to preserve battery & bandwidth
+        const titleChanged = title !== lastTitle;
+        const descChanged = desc !== lastDesc;
+        const imgChanged = imgKey !== lastImgKey;
+
+        if (!forceRebuild && !titleChanged && !descChanged && !imgChanged) return;
+
         try {
             if (forceRebuild) {
                 const layout = new RebuildPageContainer({
@@ -679,28 +726,23 @@ const even = {
                     ]
                 });
                 await _bridge.rebuildPageContainer(layout);
+                layoutReady = true;
             } else {
-                await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 0, content: title }));
-                await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 1, content: desc }));
+                if (titleChanged) await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 0, content: title }));
+                if (descChanged) await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 1, content: desc }));
             }
 
-            // Update Image based on phase/room
-            let imgKey = "DEFAULT";
-            if (gameState.phase === 'PLAY') {
-                imgKey = ROOMS[gameState.lang][gameState.room](gameState).image;
-            } else if (gameState.phase === 'MENU') {
-                imgKey = "MENU";
-            } else if (gameState.phase === 'DEAD') {
-                imgKey = "SKULL";
-            } else if (gameState.phase === 'WIN') {
-                imgKey = "CROWN";
+            if (imgChanged || forceRebuild) {
+                const imgData = IMAGES[imgKey] || IMAGES.DEFAULT;
+                await _bridge.updateImageRawData(new ImageRawDataUpdate({
+                    containerID: 2,
+                    imageData: imgData
+                }));
             }
 
-            const imgData = IMAGES[imgKey] || IMAGES.DEFAULT;
-            await _bridge.updateImageRawData(new ImageRawDataUpdate({
-                containerID: 2,
-                imageData: imgData
-            }));
+            lastTitle = title;
+            lastDesc = desc;
+            lastImgKey = imgKey;
         } catch (e) { log("showCard Error: " + e); }
     }
 };
@@ -763,6 +805,13 @@ function onScroll(direction: 'UP' | 'DOWN') {
     }
 }
 
+function transitionTo(phase: GameState['phase']) {
+    log(`Transition: ${gameState.phase} -> ${phase}`);
+    gameState.phase = phase;
+    gameState.cursor = 0;
+    saveGame();
+}
+
 function onSelect(): boolean {
     let needsRebuild = false;
     if (gameState.showHelp) {
@@ -775,35 +824,33 @@ function onSelect(): boolean {
                 _bridge.setLocalStorage('g2_inv', '[]');
                 _bridge.setLocalStorage('g2_flags', '{}');
             }
-            gameState.phase = 'LANG'; gameState.hp = 12; gameState.inventory = []; gameState.room = 'FOREST_EDGE'; gameState.flags = {}; gameState.cursor = 0; charIndex = 0; gameState.name = '';
+            gameState.hp = 12; gameState.inventory = []; gameState.room = 'FOREST_EDGE'; gameState.flags = {}; charIndex = 0; gameState.name = '';
+            transitionTo('LANG');
             needsRebuild = true;
         }
         gameState.showHelp = false;
         gameState.cursor = 0;
     } else if (gameState.phase === 'MENU') {
         if (gameState.cursor === 0) {
-            if (!gameState.name) { gameState.phase = 'LANG'; needsRebuild = true; }
-            else { gameState.phase = 'PLAY'; needsRebuild = true; }
-        } else if (gameState.cursor === 1) { gameState.phase = 'LANG'; needsRebuild = true; }
-        else if (gameState.cursor === 2) { gameState.phase = 'NAME'; needsRebuild = true; }
-        gameState.cursor = 0;
+            if (!gameState.name) transitionTo('LANG');
+            else transitionTo('PLAY');
+            needsRebuild = true;
+        } else if (gameState.cursor === 1) { transitionTo('LANG'); needsRebuild = true; }
+        else if (gameState.cursor === 2) { transitionTo('NAME'); needsRebuild = true; }
     } else if (gameState.phase === 'DEAD' || gameState.phase === 'WIN') {
-        gameState.phase = 'MENU'; gameState.hp = 12; gameState.inventory = []; gameState.room = 'FOREST_EDGE'; gameState.flags = {}; gameState.cursor = 0; charIndex = 0;
+        gameState.hp = 12; gameState.inventory = []; gameState.room = 'FOREST_EDGE'; gameState.flags = {}; charIndex = 0;
+        transitionTo('MENU');
         needsRebuild = true;
-        saveGame();
     } else if (gameState.phase === 'LANG') {
         gameState.lang = gameState.cursor === 0 ? 'IT' : 'EN';
-        gameState.phase = 'NAME';
+        transitionTo('NAME');
         needsRebuild = true;
-        saveGame();
     } else if (gameState.phase === 'NAME') {
         const char = ALPHABET[charIndex];
         if (char === '_') {
             if (gameState.name.length > 0) {
-                gameState.phase = 'MENU';
-                gameState.cursor = 0;
+                transitionTo('MENU');
                 needsRebuild = true;
-                saveGame();
             }
         } else if (gameState.name.length < 8) {
             gameState.name += char;
@@ -1006,24 +1053,23 @@ async function init() {
     } catch (e) { log("Storage Load Error: " + e); }
 
     const tProp = new TextContainerProperty({
+        ...DEFAULT_TEXT_PROPS,
         containerID: 0,
-        xPosition: 40, yPosition: 16,
+        xPosition: 40, yPosition: 24,
         width: 496, height: 56,
-        content: getTitle(),
-        borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0, isEventCapture: 0
+        content: getTitle()
     });
 
     const dProp = new TextContainerProperty({
+        ...DEFAULT_TEXT_PROPS,
         containerID: 1,
-        xPosition: 208, yPosition: 80,
-        width: 328, height: 192,
-        content: getDescription(),
-        isEventCapture: 1,
-        borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0
+        xPosition: 208, yPosition: 88,
+        width: 328, height: 184,
+        content: getDescription()
     });
 
     const iProp = new ImageContainerProperty({
-        containerID: 2, xPosition: 40, yPosition: 80, width: 144, height: 144
+        containerID: 2, xPosition: 40, yPosition: 88, width: 144, height: 144
     });
 
     try {
@@ -1051,6 +1097,7 @@ async function init() {
             log("Rebuild Success: " + success);
         }
 
+        layoutReady = success;
         updateStatus(success ? "Display Active" : `Layout Error: ${startRes}`);
     } catch (e) {
         log("Init Exception: " + e);
@@ -1094,13 +1141,13 @@ async function init() {
         else if (type === 2 || type === OsEventTypeList.SCROLL_BOTTOM_EVENT) {
             onScroll('DOWN');
         }
-        // CLICK (0)
-        else if (type === 0 || type === OsEventTypeList.CLICK_EVENT) {
+        // CLICK (0) -> Robust check for CLICK (0)
+        else if (type === 0 || type === OsEventTypeList.CLICK_EVENT || (event.jsonData && event.jsonData.textEvent?.eventSource !== undefined)) {
             needsRebuild = onSelect();
         }
-        // DOUBLE CLICK (3)
+        // DOUBLE CLICK (3) -> Mandatory System Exit Gesture
         else if (type === 3 || type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
-            log("Exit via Double Click");
+            log("User requested exit via Double Click.");
             if (_bridge) _bridge.shutDownPageContainer(1);
         }
 
