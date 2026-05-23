@@ -1,6 +1,6 @@
 {
   "name": "the-g2-chronicles",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Zork-style fantasy adventure for Even Realities G2",
   "type": "module",
   "scripts": {

@@ -1,7 +1,7 @@
 {
   "package_id": "com.even.g2chronicles",
   "name": "G2 Chronicles",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "edition": "202601",
   "description": "Embark on an epic fantasy journey on your G2. Face orcs and dragons in this persistent, Zork-inspired ASCII text adventure.",
   "entrypoint": "index.html",
