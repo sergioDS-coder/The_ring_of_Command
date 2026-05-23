@@ -4,8 +4,6 @@ import {
     RebuildPageContainer,
     TextContainerProperty,
     TextContainerUpgrade,
-    ImageContainerProperty,
-    ImageRawDataUpdate,
     OsEventTypeList,
     EvenAppBridge,
     EvenHubEvent
@@ -28,14 +26,7 @@ declare global {
     }
 }
 
-const DEFAULT_TEXT_PROPS = {
-    borderWidth: 0,
-    borderColor: 0,
-    borderRadius: 0,
-    paddingLength: 0,
-    isEventCapture: 1 // Capture clicks on all containers to fix "stuck" UI
-};
-
+/**
 // --- Image Helpers ---
 class Painter {
     data: number[];
@@ -254,7 +245,9 @@ class Painter {
         return canvas.toDataURL('image/png').split(',')[1];
     }
 }
+*/
 
+/**
 function generateProceduralImage(type: string): string {
     const p = new Painter(144, 144);
     if (type === 'MENU') {
@@ -378,7 +371,9 @@ function generateProceduralImage(type: string): string {
     p.drawVignette();
     return p.toPng();
 }
+*/
 
+/**
 const IMAGES: Record<string, string> = {
     DEFAULT: generateProceduralImage('MENU'),
     FOREST: generateProceduralImage('FOREST'),
@@ -407,6 +402,7 @@ const IMAGES: Record<string, string> = {
     PRINCESS: generateProceduralImage('PRINCESS'),
     MAP: generateProceduralImage('MAP')
 };
+*/
 const log = (msg: string) => {
     console.log(msg);
     if (window.logToUI) window.logToUI(msg);
@@ -716,13 +712,10 @@ const even = {
         try {
             if (forceRebuild) {
                 const layout = new RebuildPageContainer({
-                    containerTotalNum: 3,
+                    containerTotalNum: 2,
                     textObject: [
-                        new TextContainerProperty({ ...DEFAULT_TEXT_PROPS, containerID: 0, xPosition: 40, yPosition: 16, width: 496, height: 56, content: title }),
-                        new TextContainerProperty({ ...DEFAULT_TEXT_PROPS, containerID: 1, xPosition: 208, yPosition: 80, width: 328, height: 192, content: desc, isEventCapture: 1 })
-                    ],
-                    imageObject: [
-                        new ImageContainerProperty({ containerID: 2, xPosition: 40, yPosition: 80, width: 144, height: 144 })
+                        new TextContainerProperty({ containerID: 0, xPosition: 40, yPosition: 24, width: 496, height: 48, content: title, borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0, isEventCapture: 0 }),
+                        new TextContainerProperty({ containerID: 1, xPosition: 40, yPosition: 80, width: 496, height: 192, content: desc, borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0, isEventCapture: 1 })
                     ]
                 });
                 await _bridge.rebuildPageContainer(layout);
@@ -732,13 +725,6 @@ const even = {
                 if (descChanged) await _bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: 1, content: desc }));
             }
 
-            if (imgChanged || forceRebuild) {
-                const imgData = IMAGES[imgKey] || IMAGES.DEFAULT;
-                await _bridge.updateImageRawData(new ImageRawDataUpdate({
-                    containerID: 2,
-                    imageData: imgData
-                }));
-            }
 
             lastTitle = title;
             lastDesc = desc;
@@ -1043,43 +1029,44 @@ async function init() {
 
         if (lang) gameState.lang = lang as Language;
         if (name) gameState.name = name;
-        if (room) gameState.room = room as Room;
+        if (room && ROOMS[gameState.lang][room as Room]) gameState.room = room as Room;
+        else gameState.room = 'FOREST_EDGE';
         if (hp) gameState.hp = Number(hp);
         if (inv) gameState.inventory = JSON.parse(inv);
         if (flags) gameState.flags = JSON.parse(flags);
 
         log(`Session Loaded: ${gameState.name} (${gameState.lang}) at ${gameState.room}`);
-        gameState.phase = 'MENU';
+        if (!gameState.name || !gameState.lang) gameState.phase = 'LANG';
+        else gameState.phase = 'MENU';
     } catch (e) { log("Storage Load Error: " + e); }
 
     const tProp = new TextContainerProperty({
-        ...DEFAULT_TEXT_PROPS,
         containerID: 0,
         xPosition: 40, yPosition: 24,
-        width: 496, height: 56,
-        content: getTitle()
+        width: 496, height: 48,
+        content: getTitle(),
+        borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0, isEventCapture: 0
     });
 
     const dProp = new TextContainerProperty({
-        ...DEFAULT_TEXT_PROPS,
         containerID: 1,
-        xPosition: 208, yPosition: 88,
-        width: 328, height: 184,
-        content: getDescription()
-    });
-
-    const iProp = new ImageContainerProperty({
-        containerID: 2, xPosition: 40, yPosition: 88, width: 144, height: 144
+        xPosition: 40, yPosition: 80,
+        width: 496, height: 192,
+        content: getDescription(),
+        borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0, isEventCapture: 1
     });
 
     try {
-        // Attempt to create startup container
+        log(`Init Layout: Title="${tProp.content}" (len=${tProp.content?.length})`);
+        log(`Init Layout: Desc="${dProp.content?.substring(0, 20)}..." (len=${dProp.content?.length})`);
+
+        // Use a simpler 2-container layout to ensure basic display works
         const layout = new CreateStartUpPageContainer({
-            containerTotalNum: 3,
-            textObject: [tProp, dProp],
-            imageObject: [iProp]
+            containerTotalNum: 2,
+            textObject: [tProp, dProp]
         });
 
+        log(`Sending Layout: ${JSON.stringify(layout)}`);
         const startRes = await _bridge.createStartUpPageContainer(layout);
         log("Startup Layout Response: " + startRes);
 
@@ -1089,9 +1076,8 @@ async function init() {
         if (!success) {
             log("Startup failed, attempting Rebuild...");
             const rebuildLayout = new RebuildPageContainer({
-                containerTotalNum: 3,
-                textObject: [tProp, dProp],
-                imageObject: [iProp]
+                containerTotalNum: 2,
+                textObject: [tProp, dProp]
             });
             success = await _bridge.rebuildPageContainer(rebuildLayout);
             log("Rebuild Success: " + success);

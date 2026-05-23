@@ -17,8 +17,39 @@ Port 5184 is in use, trying another one...
 Port 5185 is in use, trying another one...
 Port 5186 is in use, trying another one...
 Port 5187 is in use, trying another one...
+Port 5188 is in use, trying another one...
 
-  VITE v5.4.21  ready in 727 ms
+  VITE v5.4.21  ready in 528 ms
 
-  ➜  Local:   http://localhost:5188/
+  ➜  Local:   http://localhost:5189/
   ➜  Network: use --host to expose
+6:16:41 AM [vite] page reload src/index.ts
+6:16:41 AM [vite] page reload src/index.ts
+6:16:49 AM [vite] page reload src/index.ts
+6:16:59 AM [vite] page reload src/index.ts
+6:17:05 AM [vite] page reload src/index.ts
+6:18:36 AM [vite] page reload src/index.ts
+6:19:49 AM [vite] page reload src/index.ts
+6:22:28 AM [vite] page reload src/index.ts
+6:23:47 AM [vite] page reload src/index.ts
+6:24:59 AM [vite] page reload src/index.ts
+6:23:47 AM [vite] page reload src/index.ts
+6:24:59 AM [vite] page reload src/index.ts
+6:24:59 AM [vite] page reload src/index.ts
+6:23:47 AM [vite] page reload src/index.ts
+6:24:59 AM [vite] page reload src/index.ts
+6:17:05 AM [vite] page reload src/index.ts
+6:18:36 AM [vite] page reload src/index.ts
+6:19:49 AM [vite] page reload src/index.ts
+6:22:28 AM [vite] page reload src/index.ts
+6:23:47 AM [vite] page reload src/index.ts
+6:24:59 AM [vite] page reload src/index.ts
+6:16:41 AM [vite] page reload src/index.ts
+6:16:49 AM [vite] page reload src/index.ts
+6:16:59 AM [vite] page reload src/index.ts
+6:17:05 AM [vite] page reload src/index.ts
+6:18:36 AM [vite] page reload src/index.ts
+6:19:49 AM [vite] page reload src/index.ts
+6:22:28 AM [vite] page reload src/index.ts
+6:23:47 AM [vite] page reload src/index.ts
+6:24:59 AM [vite] page reload src/index.ts
